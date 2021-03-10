@@ -23,19 +23,19 @@ def get_variant_from_vcf_record(record):
     variant['POS'] = str(record.POS)
     variant['REF'] = record.REF
     variant['ALT'] = ','.join([alt.value for alt in record.ALT])
-    variant['TYPE'] = ','.join(record.INFO['TY'])
+    #variant['TYPE'] = ','.join(record.INFO['TY'])
     return variant
 
 
 def is_match(vcf_record, true_variant):
     chrom = vcf_record.CHROM == true_variant['CHROM']
     pos = vcf_record.POS == int(true_variant['POS'])
-    type = ','.join(vcf_record.INFO['TY']) == true_variant['TYPE']
+    #type = ','.join(vcf_record.INFO['TY']) == true_variant['TYPE']
     genotypes = True
     for call in vcf_record.calls:
         if call.data['GT'] and call.data['GT'] != true_variant[call.sample]:
             genotypes = False
-    return chrom and pos and type and genotypes
+    return chrom and pos and genotypes
 
 
 def check(vcf_reader, true_variants_reader):
