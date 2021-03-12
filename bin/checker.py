@@ -33,7 +33,7 @@ def is_match(vcf_record, true_variant):
     #type = ','.join(vcf_record.INFO['TY']) == true_variant['TYPE']
     genotypes = True
     for call in vcf_record.calls:
-        if call.data['GT'] and call.data['GT'] != true_variant[call.sample]:
+        if call.data['GT'][0] and call.data['GT'][0] != true_variant[call.sample]:
             genotypes = False
     return chrom and pos and genotypes
 
