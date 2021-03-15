@@ -18,11 +18,13 @@ def get_args():
 
 
 def get_variant_from_vcf_record(record):
-    variant = {call.sample: call.data['GT'] for call in record.calls}
+    variant = {}
     variant['CHROM'] = record.CHROM
     variant['POS'] = str(record.POS)
     variant['REF'] = record.REF
     variant['ALT'] = ','.join([alt.value for alt in record.ALT])
+    for call in record.calls:
+        variant[call.sample] = call.data['GT']
     #variant['TYPE'] = ','.join(record.INFO['TY'])
     return variant
 
@@ -71,7 +73,12 @@ def write_variants(variants, fieldnames, file):
 def main():
     args = get_args()
     tps, fps, fns = check(vcfpy.Reader(args.merged_vcf), csv.DictReader(args.true_variants))
-    fieldnames = tps[0].keys()
+    try: #catch exception when using reference reads, i.e., no true variants
+        fieldnames = tps[0].keys()
+    except IndexError:
+        with open(args.true_variants.name, 'r') as tvfile:
+            header = tvfile.readline().rstrip()
+        fieldnames = {col: ',' for col in header.split(',')}.keys()
     write_variants(fps, fieldnames, args.false_positives)
     write_variants(fns, fieldnames, args.false_negatives)
 
