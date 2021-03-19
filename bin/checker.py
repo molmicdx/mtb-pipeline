@@ -63,6 +63,21 @@ def check(vcf_reader, true_variants_reader):
         true_variant = next(true_variants_reader, None)
     return tps, fps, fns
 
+def stats(tps, fps, fns):
+    tp = str(len(tps))
+    fp = str(len(fps))
+    fn = str(len(fns))
+
+    try:
+        precision = str(len(tps)/(len(tps) + len(fps)))
+    except ZeroDivisionError:
+        precision = '.'
+    try:
+        recall = str(len(tps)/(len(tps) + len(fns)))
+    except ZeroDivisionError:
+        recall = '.'
+
+    return tp, fp, fn, precision, recall
 
 def write_variants(variants, fieldnames, file):
     writer = csv.DictWriter(file, fieldnames=fieldnames)
@@ -81,10 +96,11 @@ def main():
         fieldnames = {col: ',' for col in header.split(',')}.keys()
     write_variants(fps, fieldnames, args.false_positives)
     write_variants(fns, fieldnames, args.false_negatives)
-
+    tp, fp, fn, precision, recall = stats(tps, fps, fns)
+    filename = args.merged_vcf.name.split('.')[0]
+    samplename = filename.split('/')[-1]
+    with open(filename + '_stats.csv', 'w') as vcfile:
+        vcfile.write(samplename + ',' + tp + ',' + fp + ',' + fn + ',' + precision + ',' + recall + '\n')
 
 if __name__ == '__main__':
     sys.exit(main())
-
-
-
