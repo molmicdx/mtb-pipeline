@@ -10,7 +10,7 @@ from random import randint, choice, random
 import argparse
 import collections
 import csv
-from configparser import SafeConfigParser
+from configparser import ConfigParser
 
 import numpy as np
 from fastalite import fastalite, Opener
@@ -43,7 +43,7 @@ def add_dist(density):
 
 def main():
     args = get_args()
-    settings = SafeConfigParser(allow_no_value=False)
+    settings = ConfigParser(allow_no_value=False)
     settings.read(args.settings)
     reference  = next(fastalite(args.reference))
     newseq = list(reference.seq)
