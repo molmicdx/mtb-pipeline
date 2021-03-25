@@ -1,0 +1,11 @@
+name: mtb_amr_env
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - vcfpy
+  - numpy
+  - fastalite
+  - configparser
+prefix: /home/local/AMC/ymseah/anaconda3/envs/mtb_amr_env
