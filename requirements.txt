@@ -1,0 +1,10 @@
+certifi
+configparser
+fastalite
+numpy
+pandas
+pysam
+pyvcf
+scipy
+six
+vcfpy
