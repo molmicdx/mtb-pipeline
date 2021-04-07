@@ -1,4 +1,5 @@
 from configparser import SafeConfigParser
+import os
 
 def parse_config(filename):
     """ Parse config file, exit if it can't be found """

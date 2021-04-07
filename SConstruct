@@ -17,7 +17,7 @@ Decider('MD5-timestamp')
 # Define some PATH elements explicitly.
 PATH=':'.join([
     'bin',
-    path.join(venv, 'bin'),
+    os.path.join(venv, 'bin'),
     '/app/bin',  # provides R
     '/usr/local/bin', '/usr/bin', '/bin'])
 
@@ -40,9 +40,9 @@ env = Environment(
     ENV=dict(os.environ, PATH=PATH, SHELLOPTS='errexit:pipefail'),
     variables=vars,
     SHELL='bash',
-    reference=config.get('simulated_variants', 'reference_genome'),
-    mutations_list=config.get('simulated_variants', 'mutations_list_output'),
-    mutated_genome=config.get('simulated_variants', 'mutated_genome_output')
+    reference=config.get('variant_simulation', 'reference_genome'),
+    mutations_list=config.get('variant_simulation', 'mutations_list_output'),
+    mutated_genome=config.get('variant_simulation', 'mutated_genome_output')
 )
 
 # Help(vars.GenerateHelpText(env))
@@ -51,8 +51,8 @@ env = Environment(
 # ############# Simulate Variants #############
 simulated_variants = env.Command(
     target=['$out/variants/GCF_000195955.2_20snps.txt', '$out/variants/GCF_000195955.2_20snps.fa'],
-    source='$reference'
-    action='python variants.py $SOURCE $mutations_list $mutated_genome'
+    source='$reference',
+    action='python bin/variants.py $SOURCE $mutations_list $mutated_genome'
 )
 
 # ############### end inputs ##################
