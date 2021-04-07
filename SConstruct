@@ -42,17 +42,18 @@ env = Environment(
     SHELL='bash',
     reference=config.get('variant_simulation', 'reference_genome'),
     mutations_list=config.get('variant_simulation', 'mutations_list_output'),
-    mutated_genome=config.get('variant_simulation', 'mutated_genome_output')
+    mutated_genome=config.get('variant_simulation', 'mutated_genome_output'),
+    variants_config=config.get('variant_simulation', 'variants_config'),
 )
 
 # Help(vars.GenerateHelpText(env))
 
 # ############### start inputs ################
 # ############# Simulate Variants #############
-simulated_variants = env.Command(
+simulated_variants_table, simulated_variants_fa = env.Command(
     target=['$out/variants/GCF_000195955.2_20snps.txt', '$out/variants/GCF_000195955.2_20snps.fa'],
     source='$reference',
-    action='python bin/variants.py $SOURCE $mutations_list $mutated_genome'
+    action='python bin/variants.py --settings $variants_config $SOURCE $TARGETS'
 )
 
 # ############### end inputs ##################
