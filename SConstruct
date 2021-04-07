@@ -1,5 +1,8 @@
 import os
 import sys
+from utils import parse_config
+
+config = parse_config('settings.conf')
 
 # Ensure that a virtualenv is active before importing non-stdlib dependencies.
 venv = os.environ.get('VIRTUAL_ENV')
@@ -20,12 +23,13 @@ PATH=':'.join([
 
 vars = Variables()
 vars.Add('out', '', 'output')
+vars.Add('log', '', 'logdir')
 vars.Add('nproc', 'Number of concurrent processes', default=12)
 
 # Provides access to options prior to instantiation of env object
 # below; it's better to access variables through the env object.
-varargs = dict({opt.key: opt.default for opt in vars.options}, **vars.args)
-truevals = {True, 'yes', 'y', 'True', 'true', 't'}
+# varargs = dict({opt.key: opt.default for opt in vars.options}, **vars.args)
+# truevals = {True, 'yes', 'y', 'True', 'true', 't'}
 
 # define boolean variables like
 # varname = varargs['varname'] in truevals
@@ -38,8 +42,9 @@ env = Environment(
     SHELL='bash'
 )
 
-Help(vars.GenerateHelpText(env))
+# Help(vars.GenerateHelpText(env))
 
 # ############### start inputs ################
+
 
 # ############### end inputs ##################
