@@ -2,7 +2,7 @@ import os
 import sys
 from utils import parse_config
 
-config = parse_config('settings.conf')
+config = parse_config('configs/settings.conf')
 
 # Ensure that a virtualenv is active before importing non-stdlib dependencies.
 venv = os.environ.get('VIRTUAL_ENV')
@@ -39,12 +39,20 @@ vars.Add('nproc', 'Number of concurrent processes', default=12)
 env = Environment(
     ENV=dict(os.environ, PATH=PATH, SHELLOPTS='errexit:pipefail'),
     variables=vars,
-    SHELL='bash'
+    SHELL='bash',
+    reference=config.get('simulated_variants', 'reference_genome'),
+    mutations_list=config.get('simulated_variants', 'mutations_list_output'),
+    mutated_genome=config.get('simulated_variants', 'mutated_genome_output')
 )
 
 # Help(vars.GenerateHelpText(env))
 
 # ############### start inputs ################
-
+# ############# Simulate Variants #############
+simulated_variants = env.Command(
+    target=['$out/variants/GCF_000195955.2_20snps.txt', '$out/variants/GCF_000195955.2_20snps.fa'],
+    source='$reference'
+    action='python variants.py $SOURCE $mutations_list $mutated_genome'
+)
 
 # ############### end inputs ##################
