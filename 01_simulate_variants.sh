@@ -7,7 +7,6 @@ REFERENCE_GENOME=data/GCF_000195955.2_ASM19595v2_genomic.fna
 VARIANT_SETTINGS=configs/variants_settings.conf
 VARIANT_DIR=output/variants
 VARIANT_NAME=$1
-MNT_SINGULARITY=/molmicro,/molmicro/working/ymseah
 SINGULARITY=/molmicro/common/singularity
 GATK=gatk-4.0.8.1.simg
 R1_QUAL_PROFILE=data/649-48_m_marinum_profileR1.txt
@@ -31,7 +30,7 @@ echo "Done"
 
 # 3. Normalize variant representation
 echo "[gatk LeftAlignAndTrimVariants] Normalizing variant representation..."
-singularity exec -B $MNT_SINGULARITY:/mnt $SINGULARITY/$GATK gatk LeftAlignAndTrimVariants -R /mnt/mtb_amr/$REFERENCE_GENOME -V /mnt/mtb_amr/$VARIANT_DIR/$1.txt.vcf -O /mnt/mtb_amr/$VARIANT_DIR/$1_normalized.vcf > $VARIANT_DIR/$1_normalized.log 2<&1
+singularity exec -B $PWD $SINGULARITY/$GATK gatk LeftAlignAndTrimVariants -R $REFERENCE_GENOME -V $VARIANT_DIR/$1.txt.vcf -O $VARIANT_DIR/$1_normalized.vcf > $VARIANT_DIR/$1_normalized.log 2<&1
 echo "Done"
 
 # 4. Generate synthetic reads
