@@ -37,7 +37,7 @@ echo "Done"
 
 # 9. Filter based on mapping quality
 echo "[samtools] Removing reads with low mapping quality..."
-singularity exec -B $PWD $SINGULARITY/$SAMTOOLS samtools view $DEDUPED_DIR/$1_deduped_matecig.bam -q 10 -bo $DEDUPED_DIR/$1_deduped_matecig_mq10.ba
+singularity exec -B $PWD $SINGULARITY/$SAMTOOLS samtools view $DEDUPED_DIR/$1_deduped_matecig.bam -q 10 -bo $DEDUPED_DIR/$1_deduped_matecig_mq10.bam
 singularity exec -B $PWD $SINGULARITY/$SAMTOOLS samtools index $DEDUPED_DIR/$1_deduped_matecig_mq10.bam
 echo "Done"
 
