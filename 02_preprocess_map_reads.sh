@@ -21,7 +21,7 @@ echo "Done"
 
 # 6. Map reads
 echo "[bwa mem] Mapping reads to reference genome..."
-singularity exec -B $PWD $SINGULARITY/$BWA bwa mem $REFERENCE_GENOME $READS_DIR/$1.R1.trimmed.fq.gz $READS_DIR/$1.R2.trimmed.fq.gz -K 100000000 -R '@RG\tID:'$1'\tLB:LB_'$1'\tPL:illumina\tPU:TEST_RUN\tSM:NC_000962.3' > $MAPPED_DIR/$1_trimmedRG.sam
+singularity exec -B $PWD $SINGULARITY/$BWA bwa mem $REFERENCE_GENOME $READS_DIR/$1.R1.trimmed.fq.gz $READS_DIR/$1.R2.trimmed.fq.gz -K 100000000 -R '@RG\tID:'$1'\tLB:LB_'$1'\tPL:illumina\tPU:TEST_RUN\tSM:'$1'' > $MAPPED_DIR/$1_trimmedRG.sam
 echo "Done"
 
 # 7. Create sorted BAM
