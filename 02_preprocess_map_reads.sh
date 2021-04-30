@@ -31,13 +31,17 @@ singularity exec -B $PWD $SINGULARITY/$SAMTOOLS samtools sort $MAPPED_DIR/$1_tri
 echo "Done"
 
 # 8. Remove duplicate reads
-echo "[gatk Picard MarkDuplicatesWithMateCigar] Removing duplicate reads..."
-singularity exec -B $PWD $SINGULARITY/$GATK gatk MarkDuplicatesWithMateCigar -I $MAPPED_DIR/$1_trimmedRG-sorted.bam -O $DEDUPED_DIR/$1_deduped_matecig.bam -M $DEDUPED_DIR/$1_deduped_matecig_metrics.txt --REMOVE_DUPLICATES TRUE > $DEDUPED_DIR/$1_deduped_matecig.log 2>&1
+echo "[gatk Picard MarkDuplicates] Removing duplicate reads..."
+singularity exec -B $PWD $SINGULARITY/$GATK gatk MarkDuplicates -I $MAPPED_DIR/$1_trimmedRG-sorted.bam -O $DEDUPED_DIR/$1_deduped.bam -M $DEDUPED_DIR/$1_deduped_metrics.txt --REMOVE_DUPLICATES TRUE > $DEDUPED_DIR/$1_deduped.log 2>&1
 echo "Done"
 
 # 9. Filter based on mapping quality
 echo "[samtools] Removing reads with low mapping quality..."
-singularity exec -B $PWD $SINGULARITY/$SAMTOOLS samtools view $DEDUPED_DIR/$1_deduped_matecig.bam -q 10 -bo $DEDUPED_DIR/$1_deduped_matecig_mq10.bam
-singularity exec -B $PWD $SINGULARITY/$SAMTOOLS samtools index $DEDUPED_DIR/$1_deduped_matecig_mq10.bam
+singularity exec -B $PWD $SINGULARITY/$SAMTOOLS samtools view $DEDUPED_DIR/$1_deduped.bam -q 10 -bo $DEDUPED_DIR/$1_deduped_matecig_mq10.bam
+singularity exec -B $PWD $SINGULARITY/$SAMTOOLS samtools index $DEDUPED_DIR/$1_deduped_mq10.bam
 echo "Done"
+
+# 10. Validate BAMs=
+echo "[gatk ValidateSamFile] Validating BAM..."
+singularity exec -B $PWD $SINGULARITY/$GATK gatk ValidateSamFile -I $DEDUPED_DIR/$1_deduped_mq10.bam --MODE SUMMARY > $DEDUPED_DIR/$1_deduped_mq10_validatebam.log
 
