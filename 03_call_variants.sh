@@ -80,5 +80,14 @@ singularity run --pwd $PWD -B $PWD $SINGULARITY/$DISCOSNP run_discoSnp++.sh -r $
 mv $PWD/$REF_NAME'_'$1* $VC_DIR/discosnp/
 echo "Done"
 
-#echo "[GATK LeftAlignAndTrimVariants] Normalizing DiscoSnp variant representations..."
-#echo "Done"
+echo "[GATK LeftAlignAndTrimVariants] Normalizing DiscoSnp variant representations..."
+singularity exec -B $PWD $SINGULARITY/$GATK gatk LeftAlignAndTrimVariants -R $REFERENCE_GENOME -V $VC_DIR/discosnp/$REF_NAME'_'$1'_k_31_c_auto_D_100_P_6_b_1_coherent.vcf' -O $VC_DIR/discosnp/$REF_NAME'_'$1'_discosnp_normalized.vcf' > $VC_DIR/discosnp/$REF_NAME'_'$1'_discosnp_normalized.log' 2>&1
+echo "Done"
+
+echo "Formatting DiscoSnp VCF for checker.py/vcfpy..."
+sed -e 's/##SAMPLE/##sample/' -e 's/G1/'$REF_NAME'/' -e 's/G2/'$1'/' <$VC_DIR/discosnp/$REF_NAME'_'$1'_discosnp_normalized.vcf' >$VC_DIR/discosnp/$REF_NAME'_'$1'_discosnp-edit_normalized.vcf'
+
+# https://www.biostars.org/p/138694/#138783
+for sample in $(zgrep -m 1 "^#CHROM" $VC_DIR'/discosnp/'$REF_NAME'_'$1'_discosnp-edit_normalized.vcf' | cut -f10-); do
+	singularity exec -B $PWD $SINGULARITY/$BCFTOOLS bcftools view -c1 -Ov -s $sample -o $VC_DIR'/discosnp/'$sample'_discosnp-edit_normalized.vcf'  $VC_DIR'/discosnp/'$REF_NAME'_'$1'_discosnp-edit_normalized.vcf'; done
+echo "Done"
