@@ -90,4 +90,5 @@ sed -e 's/##SAMPLE/##sample/' -e 's/G1/'$REF_NAME'/' -e 's/G2/'$1'/' <$VC_DIR/di
 # https://www.biostars.org/p/138694/#138783
 for sample in $(zgrep -m 1 "^#CHROM" $VC_DIR'/discosnp/'$REF_NAME'_'$1'_discosnp-edit_normalized.vcf' | cut -f10-); do
 	singularity exec -B $PWD $SINGULARITY/$BCFTOOLS bcftools view -c1 -Ov -s $sample -o $VC_DIR'/discosnp/'$sample'_discosnp-edit_normalized.vcf'  $VC_DIR'/discosnp/'$REF_NAME'_'$1'_discosnp-edit_normalized.vcf'; done
+rm $VC_DIR'/discosnp/'$REF_NAME'_discosnp-edit_normalized.vcf'
 echo "Done"
