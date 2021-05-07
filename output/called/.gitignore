@@ -1,3 +1,4 @@
 *.vcf*
 *.log
-
+*.txt
+h37ra/
