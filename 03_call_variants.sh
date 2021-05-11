@@ -87,8 +87,15 @@ echo "Done"
 echo "Formatting DiscoSnp VCF for checker.py/vcfpy..."
 sed -e 's/##SAMPLE/##sample/' -e 's/G1/'$REF_NAME'/' -e 's/G2/'$1'/' <$VC_DIR/discosnp/$REF_NAME'_'$1'_discosnp_normalized.vcf' >$VC_DIR/discosnp/$REF_NAME'_'$1'_discosnp-edit_normalized.vcf'
 
-# https://www.biostars.org/p/138694/#138783
+# Split VCFs into single-sample VCF (https://www.biostars.org/p/138694/#138783)
 for sample in $(zgrep -m 1 "^#CHROM" $VC_DIR'/discosnp/'$REF_NAME'_'$1'_discosnp-edit_normalized.vcf' | cut -f10-); do
 	singularity exec -B $PWD $SINGULARITY/$BCFTOOLS bcftools view -c1 -Ov -s $sample -o $VC_DIR'/discosnp/'$sample'_discosnp-edit_normalized.vcf'  $VC_DIR'/discosnp/'$REF_NAME'_'$1'_discosnp-edit_normalized.vcf'; done
 rm $VC_DIR'/discosnp/'$REF_NAME'_discosnp-edit_normalized.vcf'
+
+# Filter mutations that PASS filter
+grep "#" $VC_DIR'/discosnp/'$1'_discosnp-edit_normalized.vcf' > $VC_DIR'/discosnp/'$1'_discosnp-edit_normalized_PASS.vcf'
+grep "$(printf '\t')PASS$(printf '\t')" $VC_DIR'/discosnp/'$1'_discosnp-edit_normalized.vcf' >> $VC_DIR'/discosnp/'$1'_discosnp-edit_normalized_PASS.vcf'
+
+# Sort discosnp VCF
+singularity exec -B $PWD $SINGULARITY/$GATK gatk SortVcf -I $VC_DIR'/discosnp/'$1'_discosnp-edit_normalized_PASS.vcf' -O $VC_DIR'/discosnp/'$1'_discosnp-edit_normalized_PASSsorted.vcf'
 echo "Done"
