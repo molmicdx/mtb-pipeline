@@ -8,11 +8,19 @@
 
 3. Preprocess and map reads by running `./02_preprocess_map_reads.sh sample_name`
 
-4. Final output is `output/deduped/sample_name_deduped_matecig_mq10.bam` and `sample_name_deduped_matecig_mq10.bam.bai`
+4. Final output are `output/deduped/sample_name_deduped_mq10.bam` and `sample_name_deduped_mq10.bam.bai` for the next step of variant-calling. BAM files are also validated at this stage, and any errors can be found in `output/deduped/sample_name_deduped_mq10_validatebam.log`
 
 ### To call variants with all variant callers
 
 1. Call variants by running `./03_call_variants.sh sample_name`
 
-2. Final output is `output/called/sample_name_normalized.vcf`
+2. Variant callers currently available: `gatk HaplotypeCaller`, `samtools/bcftools`, `freebayes`, `VarDict`, and `DiscoSnp`.
+
+3. Final output is `output/called/sample_name_mq10_tool_normalized.vcf`. Output files from discosnp are contained in `output/called/discosnp/`.
+
+### To check called variants against list of introduced variants
+
+1. Check variants by running `./04_check_variants.sh sample_name`
+
+2. Final output are `output/checked/sample_name_mq10_tool_normalized_fPOS.csv`, `output/checked/sample_name_mq10_tool_normalized_fNEG.csv`, and `output/checked/sample_name_mq10_tool_normalized_stats.csv`
 
