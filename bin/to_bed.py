@@ -12,7 +12,7 @@ with open(args.file, 'r') as mutation_csv:
         for row in mutations[1:]:
             data = row.split(',')
             pos = int(data[1])
-            size = len(data[3].rstrip())
+            size = len(data[3].rstrip()) #length of mutation
             chromEnd = str(pos + size)
             outbed.write('\t'.join(data[:2]) + '\t' + chromEnd + '\n')
 

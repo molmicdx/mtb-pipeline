@@ -37,11 +37,11 @@ echo "Done"
 
 # 9. Filter based on mapping quality
 echo "[samtools] Removing reads with low mapping quality..."
-singularity exec -B $PWD $SINGULARITY/$SAMTOOLS samtools view $DEDUPED_DIR/$1_deduped.bam -q 10 -bo $DEDUPED_DIR/$1_deduped_matecig_mq10.bam
+singularity exec -B $PWD $SINGULARITY/$SAMTOOLS samtools view $DEDUPED_DIR/$1_deduped.bam -q 10 -bo $DEDUPED_DIR/$1_deduped_mq10.bam
 singularity exec -B $PWD $SINGULARITY/$SAMTOOLS samtools index $DEDUPED_DIR/$1_deduped_mq10.bam
 echo "Done"
 
 # 10. Validate BAMs=
 echo "[gatk ValidateSamFile] Validating BAM..."
-singularity exec -B $PWD $SINGULARITY/$GATK gatk ValidateSamFile -I $DEDUPED_DIR/$1_deduped_mq10.bam --MODE SUMMARY > $DEDUPED_DIR/$1_deduped_mq10_validatebam.log
+singularity exec -B $PWD $SINGULARITY/$GATK gatk ValidateSamFile -I $DEDUPED_DIR/$1_deduped_mq10.bam --MODE SUMMARY > $DEDUPED_DIR/$1_deduped_mq10_validatebam.log 2>&1
 
