@@ -63,3 +63,7 @@ python $CHECKER $VC_DIR/discosnp/$1_discosnp-edit_normalized_PASSsorted.vcf $VAR
 mv $VC_DIR/discosnp/$1_discosnp-edit_normalized_PASSsorted_stats.csv $CHECKED_DIR
 echo "Done"
 
+echo "[checker.py] Checking DeepVariant variant calls..."
+python $CHECKER $VC_DIR/deepvariant/$1_mq10_deepvariant_normalized.vcf $VARIANT_DIR/$1_normalized.vcf.csv_covfiltered.csv $CHECKED_DIR/$1_mq10_deepvariant_normalized_fPOS.csv $CHECKED_DIR/$1_mq10_deepvariant_normalized_fNEG.csv
+mv $VC_DIR/deepvariant/$1_mq10_deepvariant_normalized_stats.csv $CHECKED_DIR
+echo "Done"
