@@ -107,3 +107,9 @@ echo "Done"
 echo "[GATK LeftAlignAndTrimVariants] Normalizing DeepVariant variant representations..."
 singularity exec -B $PWD $SINGULARITY/$GATK gatk LeftAlignAndTrimVariants -R $REFERENCE_GENOME -V $VC_DIR/deepvariant/$1_mq10_deepvariant.vcf -O $VC_DIR/deepvariant/$1_mq10_deepvariant_normalized.vcf > $VC_DIR/deepvariant/$1_mq10_deepvariant_normalized.log 2>&1
 echo "Done"
+
+# Filter mutations that PASS filter
+echo "[grep] Get mutations that PASS..."
+grep "#" $VC_DIR'/deepvariant/'$1'_mq10_deepvariant_normalized.vcf' > $VC_DIR'/deepvariant/'$1'_mq10_deepvariant_normalized_PASS.vcf'
+grep "$(printf '\t')PASS$(printf '\t')" $VC_DIR'/deepvariant/'$1'_mq10_deepvariant_normalized.vcf' >> $VC_DIR'/deepvariant/'$1'_mq10_deepvariant_normalized_PASS.vcf'
+echo "Done"
