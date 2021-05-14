@@ -40,26 +40,24 @@ echo "Done"
 # Check true mutations
 echo "[checker.py] Checking GATK variant calls..."
 python $CHECKER $VC_DIR/$1_mq10_gatk_normalized.vcf $VARIANT_DIR/$1_normalized.vcf.csv_covfiltered.csv $CHECKED_DIR/$1_mq10_gatk_normalized_fPOS.csv $CHECKED_DIR/$1_mq10_gatk_normalized_fNEG.csv
-mv $VC_DIR/$1_mq10_gatk_normalized_stats.csv $CHECKED_DIR
 echo "Done"
 
 echo "[checker.py] Checking samtools variant calls..."
 python $CHECKER $VC_DIR/$1_mq10_bcftools_normalized.vcf $VARIANT_DIR/$1_normalized.vcf.csv_covfiltered.csv $CHECKED_DIR/$1_mq10_bcftools_normalized_fPOS.csv $CHECKED_DIR/$1_mq10_bcftools_normalized_fNEG.csv
-mv $VC_DIR/$1_mq10_bcftools_normalized_stats.csv $CHECKED_DIR
 echo "Done"
 
 echo "[checker.py] Checking FreeBayes variant calls..."
 python $CHECKER $VC_DIR/$1_mq10_freebayes_normalized.vcf $VARIANT_DIR/$1_normalized.vcf.csv_covfiltered.csv $CHECKED_DIR/$1_mq10_freebayes_normalized_fPOS.csv $CHECKED_DIR/$1_mq10_freebayes_normalized_fNEG.csv
-mv $VC_DIR/$1_mq10_freebayes_normalized_stats.csv $CHECKED_DIR
 echo "Done"
 
 echo "[checker.py] Checking VarDict variant calls..."
 python $CHECKER $VC_DIR/$1_mq10_vardict_normalized.vcf $VARIANT_DIR/$1_normalized.vcf.csv_covfiltered.csv $CHECKED_DIR/$1_mq10_vardict_normalized_fPOS.csv $CHECKED_DIR/$1_mq10_vardict_normalized_fNEG.csv
-mv $VC_DIR/$1_mq10_vardict_normalized_stats.csv $CHECKED_DIR
 echo "Done"
 
 echo "[checker.py] Checking DiscoSnp variant calls..."
 python $CHECKER $VC_DIR/discosnp/$1_discosnp-edit_normalized_PASSsorted.vcf $VARIANT_DIR/$1_normalized.vcf.csv_covfiltered.csv $CHECKED_DIR/$1_discosnp-edit_normalized_PASSsorted_fPOS.csv $CHECKED_DIR/$1_discosnp-edit_normalized_PASSsorted_fNEG.csv
-mv $VC_DIR/discosnp/$1_discosnp-edit_normalized_PASSsorted_stats.csv $CHECKED_DIR
 echo "Done"
 
+echo "[checker.py] Checking DeepVariant variant calls..."
+python $CHECKER $VC_DIR/deepvariant/$1_mq10_deepvariant_normalized_PASS.vcf $VARIANT_DIR/$1_normalized.vcf.csv_covfiltered.csv $CHECKED_DIR/$1_mq10_deepvariant_normalized_PASS_fPOS.csv $CHECKED_DIR/$1_mq10_deepvariant_normalized_PASS_fNEG.csv
+echo "Done"

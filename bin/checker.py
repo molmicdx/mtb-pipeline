@@ -5,7 +5,7 @@ import vcfpy
 
 
 def get_args():
-    parser = argparse.ArgumentParser(description="Check pipeline results with true variants")
+    parser = argparse.ArgumentParser(description="Check pipeline results with true variants. Outputs 3 CSVs: false positives, false negatives, and summary including precision, recall")
     parser.add_argument('merged_vcf', type=argparse.FileType('r'),
                         help="merged vcf file with pipeline results")
     parser.add_argument('true_variants', type=argparse.FileType('r'),
@@ -97,9 +97,9 @@ def main():
     write_variants(fps, fieldnames, args.false_positives)
     write_variants(fns, fieldnames, args.false_negatives)
     tp, fp, fn, precision, recall = stats(tps, fps, fns)
-    filename = args.merged_vcf.name.split('.')[0]
-    samplename = filename.split('/')[-1]
-    with open(filename + '_stats.csv', 'w') as vcfile:
+    output_dir = '/'.join(args.false_positives.name.split('/')[:-1])
+    samplename = args.merged_vcf.name.split('/')[-1].split('.')[0]
+    with open(output_dir + '/' + samplename + '_stats.csv', 'w') as vcfile:
         vcfile.write(samplename + ',' + tp + ',' + fp + ',' + fn + ',' + precision + ',' + recall + '\n')
 
 if __name__ == '__main__':
