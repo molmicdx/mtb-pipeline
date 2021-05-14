@@ -64,7 +64,6 @@ echo "Done"
 
 #14. Call variants with DiscoSnp
 echo "Creating file of files..."
-
 echo $PWD/$READS_DIR/$REF_NAME.R1.trimmed.fq.gz > $VC_DIR/discosnp/$REF_NAME'_fof.txt'
 echo $PWD/$READS_DIR/$REF_NAME.R2.trimmed.fq.gz >> $VC_DIR/discosnp/$REF_NAME'_fof.txt'
 
@@ -87,8 +86,24 @@ echo "Done"
 echo "Formatting DiscoSnp VCF for checker.py/vcfpy..."
 sed -e 's/##SAMPLE/##sample/' -e 's/G1/'$REF_NAME'/' -e 's/G2/'$1'/' <$VC_DIR/discosnp/$REF_NAME'_'$1'_discosnp_normalized.vcf' >$VC_DIR/discosnp/$REF_NAME'_'$1'_discosnp-edit_normalized.vcf'
 
-# https://www.biostars.org/p/138694/#138783
+# Split VCFs into single-sample VCF (https://www.biostars.org/p/138694/#138783)
 for sample in $(zgrep -m 1 "^#CHROM" $VC_DIR'/discosnp/'$REF_NAME'_'$1'_discosnp-edit_normalized.vcf' | cut -f10-); do
 	singularity exec -B $PWD $SINGULARITY/$BCFTOOLS bcftools view -c1 -Ov -s $sample -o $VC_DIR'/discosnp/'$sample'_discosnp-edit_normalized.vcf'  $VC_DIR'/discosnp/'$REF_NAME'_'$1'_discosnp-edit_normalized.vcf'; done
 rm $VC_DIR'/discosnp/'$REF_NAME'_discosnp-edit_normalized.vcf'
+
+# Filter mutations that PASS filter
+grep "#" $VC_DIR'/discosnp/'$1'_discosnp-edit_normalized.vcf' > $VC_DIR'/discosnp/'$1'_discosnp-edit_normalized_PASS.vcf'
+grep "$(printf '\t')PASS$(printf '\t')" $VC_DIR'/discosnp/'$1'_discosnp-edit_normalized.vcf' >> $VC_DIR'/discosnp/'$1'_discosnp-edit_normalized_PASS.vcf'
+
+# Sort discosnp VCF
+singularity exec -B $PWD $SINGULARITY/$GATK gatk SortVcf -I $VC_DIR'/discosnp/'$1'_discosnp-edit_normalized_PASS.vcf' -O $VC_DIR'/discosnp/'$1'_discosnp-edit_normalized_PASSsorted.vcf'
+echo "Done"
+
+# 15. Call variants with DeepVariant
+echo "[DeepVariant] Calling variants..."
+docker run -v $PWD:/input -v $PWD:/output --rm google/deepvariant:latest /opt/deepvariant/bin/run_deepvariant --model_type=WGS --ref=/input/$REFERENCE_GENOME --reads=/input/$DEDUPED_DIR/$1_deduped_mq10.bam --output_vcf=/output/$VC_DIR/deepvariant/$1_mq10_deepvariant.vcf --output_gvcf=/output/$VC_DIR/deepvariant/$1_mq10_deepvariant.gvcf --num_shards=12 --logging_dir=/output/$VC_DIR/deepvariant/
+echo "Done"
+
+echo "[GATK LeftAlignAndTrimVariants] Normalizing DeepVariant variant representations..."
+singularity exec -B $PWD $SINGULARITY/$GATK gatk LeftAlignAndTrimVariants -R $REFERENCE_GENOME -V $VC_DIR/deepvariant/$1_mq10_deepvariant.vcf -O $VC_DIR/deepvariant/$1_mq10_deepvariant_normalized.vcf > $VC_DIR/deepvariant/$1_mq10_deepvariant_normalized.log 2>&1
 echo "Done"
