@@ -1,10 +1,12 @@
 #!/bin/bash
 
-# This script simulates NGS reads from H37Ra (CP000611.1) reference genome
+# This script simulates NGS reads from H37Ra reference genome (CP000611.1 or CP016972.1)
 
 VENV=mtb_amr-env
-REFERENCE_GENOME=data/CP000611.1.fasta
-REF_NAME=TEST-CP000611
+#REFERENCE_GENOME=data/CP000611.1.fasta
+#REF_NAME=TEST-CP000611
+REFERENCE_GENOME=data/CP016972.1.fasta
+REF_NAME=TEST-CP016972
 SINGULARITY=/molmicro/common/singularity
 CUTADAPT=cutadapt-v1.15.img
 READ_LEN=150
