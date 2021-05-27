@@ -1,0 +1,5 @@
+python variants.py ../../MTB-evaluation/mtb_data/GCF_000195955.2_ASM19595v2_genomic.fna ../../MTB-evaluation/output/variants/TEST-MTBVAR3_mutations.txt ../../MTB-evaluation/output/variants/TEST-MTBVAR3.fa
+tempate length: 4411532
+output length: 4411563
+number of mutations 20
+number of snps: 11
