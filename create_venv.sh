@@ -23,4 +23,10 @@ if [[  -z "$2" ]]; then
 		    pip install --upgrade pip
 		    pip install -r requirements.txt
 
-
+#install art
+wget https://www.niehs.nih.gov/research/resources/assets/docs/artbinmountrainier2016.06.05linux64.tgz
+tar -xzvf artbinmountrainier2016.06.05linux64.tgz
+cp art_bin_MountRainier/art_illumina $VENV/bin
+cp art_bin_MountRainier/ART_profiler_illumina/* $VENV/bin
+chmod u+x $VENV/bin
+rm -fR art_bin_MountRainier artbinmountrainier2016.06.05linux64.tgz
