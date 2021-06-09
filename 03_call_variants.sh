@@ -40,6 +40,7 @@ echo "Done"
 
 echo "[bcftools] Calling variants..."
 singularity exec -B $PWD $SINGULARITY/$BCFTOOLS bcftools call -vmO v -o $VC_DIR/$1_mq10_bcftools.vcf $VC_DIR/$1_mq10_samtools.vcf
+singularity exec -B $PWD $SINGULARITY/$BCFTOOLS bcftools call -mO v -o $VC_DIR/$1_mq10_bcftools.g.vcf $VC_DIR/$1_mq10_samtools.vcf
 echo "Done"
 
 echo "[GATK LeftAlignAndTrimVariants] Normalizing bcftools variant representations..."
