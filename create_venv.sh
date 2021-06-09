@@ -30,3 +30,15 @@ cp art_bin_MountRainier/art_illumina $VENV/bin
 cp art_bin_MountRainier/ART_profiler_illumina/* $VENV/bin
 chmod u+x $VENV/bin
 rm -fR art_bin_MountRainier artbinmountrainier2016.06.05linux64.tgz
+
+#install bgzip and tabix
+wget https://github.com/samtools/htslib/releases/download/1.12/htslib-1.12.tar.bz2
+tar -xvf htslib-1.12.tar.bz2
+cd htslib-1.12
+./configure --prefix=$VENV/bin
+make
+make install
+cp $VENV/bin/bin/bgzip $VENV/bin
+cp $VENV/bin/bin/tabix $VENV/bin
+rm -r $VENV/bin/bin
+rm -fR htslib-1.12 htslib-1.12.tar.bz2

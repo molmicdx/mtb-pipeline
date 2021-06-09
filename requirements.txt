@@ -1,4 +1,5 @@
 fastalite
+igv-reports
 numpy
 pysam
 scons
