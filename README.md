@@ -16,9 +16,9 @@
 
 1. Call variants by running `./03_call_variants.sh sample_name`
 
-2. Variant callers currently available in the script: `gatk HaplotypeCaller`, `samtools/bcftools`, `freebayes`, `VarDict`, and `DiscoSnp`.
+2. Variant callers currently available in the script: `gatk HaplotypeCaller`, `samtools/bcftools`, `freebayes`, `VarDict`, `DiscoSnp`, and `DeepVariant`.
 
-3. Final output is `output/called/sample_name_mq10_tool_normalized.vcf`. Output files from discosnp are contained in `output/called/discosnp/`.
+3. Final output is `output/called/sample_name_mq10_tool_normalized.vcf`. Output files from DiscoSnp and DeepVariant are contained in `output/called/discosnp/` and `output/called/deepvariant` respectively.
 
 *This script should take ~3 hrs to complete. (Calling variants with `VarDict` takes the most time.)*
 
@@ -29,3 +29,11 @@
 2. Final output are `output/checked/sample_name_mq10_tool_normalized_fPOS.csv`, `output/checked/sample_name_mq10_tool_normalized_fNEG.csv`, and `output/checked/sample_name_mq10_tool_normalized_stats.csv`
 
 *This script should take ~1 min to complete.*
+
+### To generate IGV reports
+
+1. Generate IGV snapshot reports by running `./05_create_reports.sh sample_name`
+
+2. Final HTML reports for each variant caller are in `output/igv_reports/`
+
+*This script takes ~2 to ~45 mins to complete, depending on the number of variants*
