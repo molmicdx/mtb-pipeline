@@ -65,3 +65,8 @@ echo "Done"
 echo "[igv-reports] Creating IGV report for DeepVariant variant calls..."
 create_report $VC_DIR/deepvariant/$1_mq10_deepvariant_normalized_PASS.vcf.gz $REFERENCE_GENOME --flanking 1000 --info-columns $INFO --tracks $VC_DIR/deepvariant/$1_mq10_deepvariant_normalized_PASS.vcf.gz $DEDUPED_DIR/$1_deduped_mq10.bam --output $IGV_REPORTS/$1_deepvariant_report.html >> $IGV_REPORTS/igv_reports.log 2<&1
 echo "Done"
+
+echo "[igv-reports] Creating IGV report for delly variant calls..."
+create_report $VC_DIR/$1_mq10_delly_normalized.vcf.gz $REFERENCE_GENOME --flanking 1000 --info-columns $INFO MAPQ SRMAPQ INSLEN --tracks $VC_DIR/$1_mq10_delly_normalized.vcf.gz $DEDUPED_DIR/$1_deduped_mq10.bam --output $IGV_REPORTS/$1_delly_report.html >> $IGV_REPORTS/igv_reports.log 2<&1
+echo "Done"
+
