@@ -14,6 +14,7 @@ VARDICT=quay.io/biocontainers/vardict-java:1.8.2--0
 VARDICT_SCRIPTS=bin/VarDict-1.8.2/bin
 BEDTOOLS=bedtools-2.27.1-singularity-3.5.1.sif
 DISCOSNP=discosnp_wrap-v2.2.10.simg
+DELLY=delly_v0.8.7.sif
 READS_DIR=output/reads
 DEDUPED_DIR=output/deduped
 VC_DIR=output/called
@@ -124,3 +125,19 @@ echo "[grep] Get mutations that PASS..."
 grep "#" $VC_DIR'/deepvariant/'$1'_mq10_deepvariant_normalized.vcf' > $VC_DIR'/deepvariant/'$1'_mq10_deepvariant_normalized_PASS.vcf'
 grep "$(printf '\t')PASS$(printf '\t')" $VC_DIR'/deepvariant/'$1'_mq10_deepvariant_normalized.vcf' >> $VC_DIR'/deepvariant/'$1'_mq10_deepvariant_normalized_PASS.vcf'
 echo "Done"
+
+# 16. Call variants with delly
+echo "[delly] Calling variants..."
+singularity exec -B $PWD $SINGULARITY/$DELLY delly call -g $REFERENCE_GENOME -o $VC_DIR/$1_mq10_delly.bcf $DEDUPED_DIR/$1_deduped_mq10.bam
+
+# Convert bcf to vcf
+echo "[bcftools] Converting delly BCF output to VCF..."
+singularity exec -B $PWD $SINGULARITY/$BCFTOOLS bcftools view $VC_DIR/$1_mq10_delly.bcf -O v -o $VC_DIR/$1_mq10_delly.vcf
+echo "Done"
+
+echo "[GATK LeftAlignAndTrimVariants] Normalizing delly variant representations..."
+
+# Normalize variant representation
+singularity exec -B $PWD $SINGULARITY/$GATK gatk LeftAlignAndTrimVariants -R $REFERENCE_GENOME -V $VC_DIR/$1_mq10_delly.vcf -O $VC_DIR/$1_mq10_delly_normalized.vcf > $VC_DIR/$1_mq10_delly_normalized.log 2>&1
+
+
