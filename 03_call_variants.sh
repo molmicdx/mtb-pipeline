@@ -139,5 +139,15 @@ echo "[GATK LeftAlignAndTrimVariants] Normalizing delly variant representations.
 
 # Normalize variant representation
 singularity exec -B $PWD $SINGULARITY/$GATK gatk LeftAlignAndTrimVariants -R $REFERENCE_GENOME -V $VC_DIR/$1_mq10_delly.vcf -O $VC_DIR/$1_mq10_delly_normalized.vcf > $VC_DIR/$1_mq10_delly_normalized.log 2>&1
+echo "Done"
+
+# 17. Call variants with Lancet
+echo "[Lancet] Calling variants..."
+./bin/lancet --tumor $DEDUPED_DIR/$1_deduped_mq10.bam --normal $DEDUPED_DIR/$REF_NAME'_deduped_mq10.bam' --ref $REFERENCE_GENOME --reg NC_000962.3 --num-threads 8 > $VC_DIR/$1_mq10_lancet.vcf
+echo "Done"
+
+echo "[GATK LeftAlignAndTrimVariants] Normalizing Lancet variant representations..."
+singularity exec -B $PWD $SINGULARITY/$GATK gatk LeftAlignAndTrimVariants -R $REFERENCE_GENOME -V $VC_DIR/$1_mq10_lancet.vcf -O $VC_DIR/$1_mq10_lancet_normalized.vcf > $VC_DIR/$1_mq10_lancet_normalized.log 2>&1
+echo "Done"
 
 
