@@ -61,3 +61,12 @@ echo "Done"
 echo "[checker.py] Checking DeepVariant variant calls..."
 python $CHECKER $VC_DIR/deepvariant/$1_mq10_deepvariant_normalized_PASS.vcf $VARIANT_DIR/$1_normalized.vcf.csv_covfiltered.csv $CHECKED_DIR/$1_mq10_deepvariant_normalized_PASS_fPOS.csv $CHECKED_DIR/$1_mq10_deepvariant_normalized_PASS_fNEG.csv
 echo "Done"
+
+echo "[checker.py] Checking delly variant calls..."
+python $CHECKER $VC_DIR/$1_mq10_delly_normalized.vcf $VARIANT_DIR/$1_normalized.vcf.csv_covfiltered.csv $CHECKED_DIR/$1_mq10_delly_normalized_fPOS.csv $CHECKED_DIR/$1_mq10_delly_normalized_fNEG.csv
+echo "Done"
+
+echo "[checker.py] Checking Lancet variant calls..."
+python $CHECKER $VC_DIR/$1_mq10_lancet_normalized.vcf $VARIANT_DIR/$1_normalized.vcf.csv $CHECKED_DIR/$1_mq10_lancet_normalized_fPOS.csv $CHECKED_DIR/$1_mq10_lancet_normalized_fNEG.csv
+echo "Done"
+
