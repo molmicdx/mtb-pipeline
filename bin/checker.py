@@ -35,8 +35,12 @@ def is_match(vcf_record, true_variant):
     #type = ','.join(vcf_record.INFO['TY']) == true_variant['TYPE']
     genotypes = True
     for call in vcf_record.calls:
-        if call.data['GT'][0] and call.data['GT'][0] != true_variant[call.sample]:
-            genotypes = False
+        try: #Catch diploid GT reporting
+            if call.data['GT'][0] != true_variant[call.sample] and call.data['GT'][2] != true_variant[call.sample]:
+                genotypes = False
+        except IndexError:
+            if call.data['GT'][0] and call.data['GT'][0] != true_variant[call.sample]:
+                genotypes = False
     return chrom and pos and genotypes
 
 
