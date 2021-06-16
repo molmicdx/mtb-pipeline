@@ -8,7 +8,7 @@ SINGULARITY=/molmicro/common/singularity
 VARIANT_DIR=output/variants
 DEDUPED_DIR=output/deduped
 VC_DIR=output/called
-CHECKED_DIR=output/checked
+CHECKED_DIR=output/checked/cov_limit_10
 TO_CSV=bin/to_csv.py
 TO_BED=bin/to_bed.py
 FILTER_COV=bin/filter_low_cov.py
@@ -67,6 +67,6 @@ python $CHECKER $VC_DIR/$1_mq10_delly_normalized.vcf $VARIANT_DIR/$1_normalized.
 echo "Done"
 
 echo "[checker.py] Checking Lancet variant calls..."
-python $CHECKER $VC_DIR/$1_mq10_lancet_normalized.vcf $VARIANT_DIR/$1_normalized.vcf.csv $CHECKED_DIR/$1_mq10_lancet_normalized_fPOS.csv $CHECKED_DIR/$1_mq10_lancet_normalized_fNEG.csv
+python $CHECKER $VC_DIR/$1_mq10_lancet_normalized.vcf $VARIANT_DIR/$1_normalized.vcf.csv_covfiltered.csv $CHECKED_DIR/$1_mq10_lancet_normalized_fPOS.csv $CHECKED_DIR/$1_mq10_lancet_normalized_fNEG.csv
 echo "Done"
 
