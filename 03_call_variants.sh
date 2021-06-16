@@ -139,5 +139,22 @@ echo "[GATK LeftAlignAndTrimVariants] Normalizing delly variant representations.
 
 # Normalize variant representation
 singularity exec -B $PWD $SINGULARITY/$GATK gatk LeftAlignAndTrimVariants -R $REFERENCE_GENOME -V $VC_DIR/$1_mq10_delly.vcf -O $VC_DIR/$1_mq10_delly_normalized.vcf > $VC_DIR/$1_mq10_delly_normalized.log 2>&1
+echo "Done"
 
+# 17. Call variants with Lancet
+echo "[Lancet] Calling variants..."
+./bin/lancet --tumor $DEDUPED_DIR/$1_deduped_mq10.bam --normal $DEDUPED_DIR/$REF_NAME'_deduped_mq10.bam' --ref $REFERENCE_GENOME --reg NC_000962.3 --min-vaf-tumor 0.2 --low-cov 10 --num-threads 8 > $VC_DIR/$1'_'$REF_NAME'_mq10_lancet.vcf'
+echo "Done"
+
+echo "[GATK LeftAlignAndTrimVariants] Normalizing Lancet variant representations..."
+singularity exec -B $PWD $SINGULARITY/$GATK gatk LeftAlignAndTrimVariants -R $REFERENCE_GENOME -V $VC_DIR/$1'_'$REF_NAME'_mq10_lancet.vcf' -O $VC_DIR/$1'_'$REF_NAME'_mq10_lancet_normalized.vcf' > $VC_DIR/$1'_'$REF_NAME'_mq10_lancet_normalized.log' 2>&1
+echo "Done"
+
+echo "[bash] Preparing VCF for checker.py..."
+#Split VCFs into single-sample VCF (https://www.biostars.org/p/138694/#138783)
+for sample in $(zgrep -m 1 "^#CHROM" $VC_DIR/$1'_'$REF_NAME'_mq10_lancet_normalized.vcf' | cut -f10-); do
+	       singularity exec -B $PWD $SINGULARITY/$BCFTOOLS bcftools view -c1 -Ov -s $sample -o $VC_DIR/$sample'_mq10_lancet_normalized.vcf' $VC_DIR/$1'_'$REF_NAME'_mq10_lancet_normalized.vcf'; done
+
+rm $VC_DIR/$REF_NAME'_mq10_lancet_normalized.vcf'
+echo "Done"
 
