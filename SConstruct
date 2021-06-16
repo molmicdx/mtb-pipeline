@@ -9,6 +9,9 @@ venv = os.environ.get('VIRTUAL_ENV')
 if not venv:
     sys.exit('--> an active virtualenv is required'.format(venv))
 
+singularity = config.get('singularity', 'singularity')
+gatk_img = config.get('singularity', 'gatk')
+
 from SCons.Script import (Environment, Variables, Help, Decider)
 
 # check timestamps before calculating md5 checksums
@@ -23,7 +26,7 @@ PATH=':'.join([
 
 vars = Variables()
 vars.Add('out', '', 'output')
-vars.Add('log', '', 'logdir')
+vars.Add('log', '', 'logs')
 vars.Add('nproc', 'Number of concurrent processes', default=12)
 
 # Provides access to options prior to instantiation of env object
@@ -40,10 +43,12 @@ env = Environment(
     ENV=dict(os.environ, PATH=PATH, SHELLOPTS='errexit:pipefail'),
     variables=vars,
     SHELL='bash',
-    reference=config.get('variant_simulation', 'reference_genome'),
-    mutations_list=config.get('variant_simulation', 'mutations_list_output'),
-    mutated_genome=config.get('variant_simulation', 'mutated_genome_output'),
+    cwd=os.getcwd(),
+    reference=config.get('DEFAULT', 'reference_genome'),
+    variant=config.get('variant_simulation', 'variant_name'),
     variants_config=config.get('variant_simulation', 'variants_config'),
+    variants_out=config.get('output', 'variants'),
+    gatk='{} exec -B $cwd {} gatk'.format(singularity, gatk_img)
 )
 
 # Help(vars.GenerateHelpText(env))
@@ -51,9 +56,23 @@ env = Environment(
 # ############### start inputs ################
 # ############# Simulate Variants #############
 simulated_variants_table, simulated_variants_fa = env.Command(
-    target=['$out/variants/GCF_000195955.2_20snps.txt', '$out/variants/GCF_000195955.2_20snps.fa'],
+    target=['$out/$variants_out/${variant}.txt', '$out/$variants_out/${variant}.fa'],
     source='$reference',
-    action='python bin/variants.py --settings $variants_config $SOURCE $TARGETS'
+    action=('python bin/variants.py --settings $variants_config $SOURCE $TARGETS')
+)
+
+# ############# Normalize Variant VCF ###############
+simulated_variant_vcf = env.Command(
+    target='$out/$variants_out/${variant}.txt.vcf',
+    source=simulated_variants_table,
+    action='python bin/to_vcf.py $SOURCE $variant'
+)
+
+normalized_variant_vcf = env.Command(
+    target=['$out/$variants_out/${variant}_normalized.vcf', '$log/$variants_out/${variant}_normalized.log'],
+    source=simulated_variant_vcf,
+    action=('$gatk LeftAlignAndTrimVariants -R $reference -V $SOURCE -O ${TARGETS[0]} '
+            '> ${TARGETS[1]} 2<&1')
 )
 
 # ############### end inputs ##################
