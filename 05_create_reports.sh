@@ -71,5 +71,5 @@ create_report $VC_DIR/$1_mq10_delly_normalized.vcf.gz $REFERENCE_GENOME --flanki
 echo "Done"
 
 echo "[igv-reports] Creating IGV report for Lancet variant calls..."
-create_report $VC_DIR/$1_mq10_lancet_normalized.vcf.gz $REFERENCE_GENOME --flanking 1000 --info-columns $INFO SOMATIC SHARED --tracks $VC_DIR/$1_mq10_lancet_normalized.vcf.gz $DEDUPED_DIR/$1_deduped_mq10.bam --output $IGV_REPORTS/$1_lancet_report.html >> IGV_REPORTS/igv_reports.log 2<&1
+create_report $VC_DIR/$1_mq10_lancet_normalized.vcf.gz $REFERENCE_GENOME --flanking 1000 --info-columns $INFO SOMATIC SHARED --tracks $VC_DIR/$1_mq10_lancet_normalized.vcf.gz $DEDUPED_DIR/$1_deduped_mq10.bam --output $IGV_REPORTS/$1_lancet_report.html >> $IGV_REPORTS/igv_reports.log 2<&1
 echo "Done"
