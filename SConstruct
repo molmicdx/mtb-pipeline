@@ -12,6 +12,7 @@ except KeyError:
 
 singularity = config.get('singularity', 'singularity')
 gatk_img = config.get('singularity', 'gatk')
+cutadapt_img = config.get('singularity', 'cutadapt')
 
 from SCons.Script import (Environment, Variables, Help, Decider)
 
@@ -55,9 +56,14 @@ env = Environment(
     read_depth = config.get('variant_simulation', 'avg_read_depth'),
     frag_len = config.get('variant_simulation', 'avg_fragment_length'),
     sd = config.get('variant_simulation', 'std_dev'),
+    min_read_q = config.get('reads_preprocessing', 'min_read_quality'),
+    min_read_len = config.get('reads_preprocessing', 'min_read_length'),
+    adaptors = config.get('reads_preprocessing', 'adaptors_fa'),
+    cutadapt_cores = config.get('reads_preprocessing', 'cutadapt_cores'),
     variants_out = config.get('output', 'variants'),
     reads_out = config.get('output', 'reads'),
-    gatk = '{} exec -B $cwd {} gatk'.format(singularity, gatk_img)
+    gatk = '{} exec -B $cwd {} gatk'.format(singularity, gatk_img),
+    cutadapt = '{} exec -B $cwd {} cutadapt'.format(singularity, cutadapt_img)
 )
 
 # Help(vars.GenerateHelpText(env))
@@ -103,7 +109,16 @@ gzsimR1, gzsimR2 = env.Command(
     action = ('gzip $SOURCES')
 )
 
-
+# ############## Trim NGS Reads ################
+R1trimmed, R2trimmed = env.Command(
+    target = ['$out/$reads_out/${variant}.R1.trimmed.fq.gz',
+              '$out/$reads_out/${variant}.R2.trimmed.fq.gz',
+              '$log/$reads_out/${variant}_cutadapt.log'],
+    source = [gzsimR1, gzsimR2],
+    action = ('$cutadapt --cores $cutadapt_cores -q $min_read_q -b file:$adaptors -B file:$adaptors '
+              '--minimum-length $min_read_len -o ${TARGETS[0]} -p ${TARGETS[1]} $SOURCES '
+              '> ${TARGETS[-1]} 2<&1')
+)
 
 
 # ############### end inputs ##################
