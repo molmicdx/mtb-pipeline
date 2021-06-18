@@ -73,8 +73,10 @@ env = Environment(
     gatk = '{} exec -B $cwd {} gatk'.format(singularity, gatk_img),
     cutadapt = '{} exec -B $cwd {} cutadapt'.format(singularity, cutadapt_img),
     bwa = '{} exec -B $cwd {} bwa mem'.format(singularity, bwa_img),
-    samtools = '{} exec -B $cwd {}'.format(singularity, samtools_img)
+    samtools = '{} exec -B $cwd {} samtools'.format(singularity, samtools_img)
 )
+
+# TargetSignatures('content')
 
 # Help(vars.GenerateHelpText(env))
 
@@ -116,7 +118,7 @@ gzsimR1, gzsimR2 = env.Command(
     target = ['$out/$reads_out/${variant}_R1.fq.gz',
               '$out/$reads_out/${variant}_R2.fq.gz'],
     source = [sim_R1, sim_R2],
-    action = ('gzip $SOURCES')
+    action = ('gzip $SOURCES --keep')
 )
 
 # ############## Trim NGS Reads ################
@@ -143,7 +145,7 @@ sam = env.Command(
 sorted_bam = env.Command(
     target = ['$out/$mapped_out/${variant}_trimmed-sorted.bam'],
     source = sam,
-    action = '$samtools samtools sort $SOURCE $out/$mapped_out/${variant}_trimmed-sorted'
+    action = '$samtools sort $SOURCE $out/$mapped_out/${variant}_trimmed-sorted'
 )
 
 # ############## Remove Duplicate Reads ###############
@@ -158,13 +160,23 @@ deduped, deduped_metrics, deduped_log = env.Command(
 
 # ################### Filter Reads ####################
 
-# mq_filtered_bam, indexed = env.Command(
-#    target = ['$out/$deduped_out/$variant}_deduped_mq.bam', 
-#              '$out/$deduped_out/$variant}_deduped_mq.bam.bai'],
-#    source = deduped,
-#    action = '$samtools sh -c "samtools view $SOURCE -q $mapq -u | samtools index"'
+mq_filtered_bam = env.Command(
+    target = '$out/$deduped_out/${variant}_deduped_mq.bam',
+    source = deduped,
+    action = '$samtools view $SOURCE -q $mapq -bo $TARGET'
+)
+
+indexed_bam = env.Command(
+    target = '$out/$deduped_out/${variant}_deduped_mq.bam.bai',
+    source = mq_filtered_bam,
+    action = '$samtools index $SOURCE'
+)
+# ################## Validate BAM #####################
+
+#bamlog = env.Command(
+#    target = '$out/$deduped_out/${variant}_deduped_mq_validatebam.log',
+#    source = mq_filtered_bam,
+#    action = '$gatk ValidateSamFile -I $SOURCE --MODE SUMMARY > $TARGET 2>&1'
 #)
-
-
 
 # ############### end inputs ##################
