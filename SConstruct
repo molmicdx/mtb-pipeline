@@ -13,6 +13,8 @@ except KeyError:
 singularity = config.get('singularity', 'singularity')
 gatk_img = config.get('singularity', 'gatk')
 cutadapt_img = config.get('singularity', 'cutadapt')
+bwa_img = config.get('singularity', 'bwa')
+samtools_img = config.get('singularity', 'samtools')
 
 from SCons.Script import (Environment, Variables, Help, Decider)
 
@@ -62,8 +64,16 @@ env = Environment(
     cutadapt_cores = config.get('reads_preprocessing', 'cutadapt_cores'),
     variants_out = config.get('output', 'variants'),
     reads_out = config.get('output', 'reads'),
+    mapped_out = config.get('output', 'mapped'),
+    deduped_out = config.get('output', 'deduped'),
+    bwa_k = config.get('read_mapping', 'bwa_deterministic'),
+    rg_pl = config.get('read_mapping', 'read_group_PL'),
+    rg_pu = config.get('read_mapping', 'read_group_PU'),
+    mapq = config.get('read_mapping', 'min_mapq'),
     gatk = '{} exec -B $cwd {} gatk'.format(singularity, gatk_img),
-    cutadapt = '{} exec -B $cwd {} cutadapt'.format(singularity, cutadapt_img)
+    cutadapt = '{} exec -B $cwd {} cutadapt'.format(singularity, cutadapt_img),
+    bwa = '{} exec -B $cwd {} bwa mem'.format(singularity, bwa_img),
+    samtools = '{} exec -B $cwd {}'.format(singularity, samtools_img)
 )
 
 # Help(vars.GenerateHelpText(env))
@@ -110,7 +120,7 @@ gzsimR1, gzsimR2 = env.Command(
 )
 
 # ############## Trim NGS Reads ################
-R1trimmed, R2trimmed = env.Command(
+R1trimmed, R2trimmed, trimlog  = env.Command(
     target = ['$out/$reads_out/${variant}.R1.trimmed.fq.gz',
               '$out/$reads_out/${variant}.R2.trimmed.fq.gz',
               '$log/$reads_out/${variant}_cutadapt.log'],
@@ -119,6 +129,42 @@ R1trimmed, R2trimmed = env.Command(
               '--minimum-length $min_read_len -o ${TARGETS[0]} -p ${TARGETS[1]} $SOURCES '
               '> ${TARGETS[-1]} 2<&1')
 )
+
+# ################ Map Reads ###################
+
+sam = env.Command(
+    target = ['$out/$mapped_out/${variant}_trimmed.sam'],
+    source = ['$reference', R1trimmed, R2trimmed],
+    action = ('$bwa $SOURCES -K $bwa_k '
+              '-R \'@RG\\tID:${variant}\\tLB:LB_${variant}\\tPL:${rg_pl}\\tPU:${rg_pu}\\tSM:${variant}\' '
+              '> $TARGET')
+)
+
+sorted_bam = env.Command(
+    target = ['$out/$mapped_out/${variant}_trimmed-sorted.bam'],
+    source = sam,
+    action = '$samtools samtools sort $SOURCE $out/$mapped_out/${variant}_trimmed-sorted'
+)
+
+# ############## Remove Duplicate Reads ###############
+deduped, deduped_metrics, deduped_log = env.Command(
+    target = ['$out/$deduped_out/${variant}_deduped.bam', 
+              '$out/$deduped_out/${variant}_deduped_metrics.txt',
+              '$log/$deduped_out/${variant}_deduped.log'],
+    source = sorted_bam,
+    action = ('$gatk MarkDuplicates -I $SOURCE -O ${TARGETS[0]} -M ${TARGETS[1]} --REMOVE_DUPLICATES TRUE '
+              '> ${TARGETS[-1]} 2>&1')
+)
+
+# ################### Filter Reads ####################
+
+# mq_filtered_bam, indexed = env.Command(
+#    target = ['$out/$deduped_out/$variant}_deduped_mq.bam', 
+#              '$out/$deduped_out/$variant}_deduped_mq.bam.bai'],
+#    source = deduped,
+#    action = '$samtools sh -c "samtools view $SOURCE -q $mapq -u | samtools index"'
+#)
+
 
 
 # ############### end inputs ##################
