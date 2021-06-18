@@ -15,6 +15,7 @@ gatk_img = config.get('singularity', 'gatk')
 cutadapt_img = config.get('singularity', 'cutadapt')
 bwa_img = config.get('singularity', 'bwa')
 samtools_img = config.get('singularity', 'samtools')
+bcftools_img = config.get('singularity', 'bcftools')
 
 from SCons.Script import (Environment, Variables, Help, Decider)
 
@@ -66,6 +67,20 @@ env = Environment(
     reads_out = config.get('output', 'reads'),
     mapped_out = config.get('output', 'mapped'),
     deduped_out = config.get('output', 'deduped'),
+    called_out = config.get('output', 'called'),
+    gvcf_out = config.get('output', 'gvcf'),
+    gatk_out = config.get('variant_calling', 'gatk_output'),
+    bcftools_out = config.get('variant_calling', 'bcftools_output'),
+    freebayes_out = config.get('variant_calling', 'freebayes_output'),
+    discosnp_out = config.get('variant_calling', 'discosnp_output'),
+    deepvariant_out = config.get('variant_calling', 'deepvariant_output'),
+    vardict_out = config.get('variant_calling', 'vardict_output'),
+    delly_out = config.get('variant_calling', 'delly_output'),
+    lancet_out = config.get('variant_calling', 'lancet_output'),
+    ploidy = config.get('variant_calling', 'ploidy'),
+    allele_fraction = config.get('variant_calling', 'min_allele_fraction'),
+    min_read_depth = config.get('variant_calling', 'min_read_depth'),
+    max_read_depth = config.get('variant_calling', 'max_read_depth'),
     bwa_k = config.get('read_mapping', 'bwa_deterministic'),
     rg_pl = config.get('read_mapping', 'read_group_PL'),
     rg_pu = config.get('read_mapping', 'read_group_PU'),
@@ -73,7 +88,8 @@ env = Environment(
     gatk = '{} exec -B $cwd {} gatk'.format(singularity, gatk_img),
     cutadapt = '{} exec -B $cwd {} cutadapt'.format(singularity, cutadapt_img),
     bwa = '{} exec -B $cwd {} bwa mem'.format(singularity, bwa_img),
-    samtools = '{} exec -B $cwd {} samtools'.format(singularity, samtools_img)
+    samtools = '{} exec -B $cwd {} samtools'.format(singularity, samtools_img),
+    bcftools = '{} exec -B $cwd {} bcftools'.format(singularity, bcftools_img)
 )
 
 # TargetSignatures('content')
@@ -171,6 +187,7 @@ indexed_bam = env.Command(
     source = mq_filtered_bam,
     action = '$samtools index $SOURCE'
 )
+
 # ################## Validate BAM #####################
 
 #bamlog = env.Command(
@@ -180,3 +197,58 @@ indexed_bam = env.Command(
 #)
 
 # ############### end inputs ##################
+
+
+# ################# Call Variants #####################
+
+# ##################### GATK ##########################
+
+gatk_gvcf, gatk_log = env.Command(
+    target = ['$out/$called_out/$gvcf_out/${variant}_${gatk_out}.g.vcf',
+              '$log/$called_out/${variant}_${gatk_out}_haplotypecaller.log'],
+    source = ['$reference',
+              mq_filtered_bam],
+    action = ('$gatk HaplotypeCaller -ploidy $ploidy -R ${SOURCES[0]} -I ${SOURCES[1]} '
+              '-O ${TARGETS[0]} -ERC GVCF > ${TARGETS[-1]} 2>&1')
+)
+
+gatk_gt, gatk_gt_log = env.Command(
+    target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}.vcf',
+              '$log/$called_out/${variant}_${gatk_out}_genotypegvcfs.log'],
+    source = ['$reference',
+              gatk_gvcf],
+    action = ('$gatk GenotypeGVCFs -R ${SOURCES[0]} -V ${SOURCES[1]} '
+              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+)
+
+gatk_normalized, gatk_norm_log = env.Command(
+    target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized.vcf',
+              '$log/$called_out/${variant}_${gatk_out}_normalized.log'],
+    source = ['$reference',
+              gatk_gt],
+    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
+              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+)
+
+# ##################### bcftools #######################
+
+pileup = env.Command(
+    target = '$out/$called_out/$bcftools_out/${variant}_pileup.vcf',
+    source = ['$reference',
+              mq_filtered_bam],
+    action = ('$samtools mpileup -m $min_read_depth -F $allele_fraction -u -f ${SOURCES[0]} '
+              '-d $max_read_depth -A -B ${SOURCES[1]} -vo $TARGET')
+)
+
+bcftools_gvcf = env.Command(
+    target = '$out/$called_out/$gvcf_out/${variant}_${bcftools_out}_g.vcf',
+    source = pileup,
+    action = '$bcftools call -g $min_read_depth -mO v -o $TARGET $SOURCE' 
+)
+
+bcftools_vcf = env.Command(
+    target = '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}.vcf',
+    source = bcftools_gvcf,
+    action = '$bcftools convert --gvcf2vcf $SOURCE -O v -o $TARGET'
+)
+
