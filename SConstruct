@@ -16,6 +16,11 @@ cutadapt_img = config.get('singularity', 'cutadapt')
 bwa_img = config.get('singularity', 'bwa')
 samtools_img = config.get('singularity', 'samtools')
 bcftools_img = config.get('singularity', 'bcftools')
+bedtools_img = config.get('singularity', 'bedtools')
+discosnp_img = config.get('singularity', 'discosnp')
+docker = config.get('docker', 'docker')
+freebayes_img = config.get('docker', 'freebayes')
+vardict_img = config.get('docker', 'vardict')
 
 from SCons.Script import (Environment, Variables, Help, Decider)
 
@@ -51,6 +56,7 @@ env = Environment(
     cwd = os.getcwd(),
     venv_config = config.get('DEFAULT', 'virtualenv'),
     reference = config.get('DEFAULT', 'reference_genome'),
+    ref_name = config.get('DEFAULT', 'reference_name'),
     variant = config.get('variant_simulation', 'variant_name'),
     variants_config = config.get('variant_simulation', 'variants_config'),
     read1_q = config.get('variant_simulation', 'r1_qual_profile'),
@@ -74,6 +80,7 @@ env = Environment(
     freebayes_out = config.get('variant_calling', 'freebayes_output'),
     discosnp_out = config.get('variant_calling', 'discosnp_output'),
     deepvariant_out = config.get('variant_calling', 'deepvariant_output'),
+    vardict_scripts = config.get('variant_calling', 'vardict_scripts'),
     vardict_out = config.get('variant_calling', 'vardict_output'),
     delly_out = config.get('variant_calling', 'delly_output'),
     lancet_out = config.get('variant_calling', 'lancet_output'),
@@ -81,6 +88,12 @@ env = Environment(
     allele_fraction = config.get('variant_calling', 'min_allele_fraction'),
     min_read_depth = config.get('variant_calling', 'min_read_depth'),
     max_read_depth = config.get('variant_calling', 'max_read_depth'),
+    snp_per_bubble = config.get('discosnp_params', 'snp_per_bubble'),
+    disco_mode = config.get('discosnp_params', 'disco_mode'),
+    kmer_size = config.get('discosnp_params', 'kmer_size'),
+    coverage = config.get('discosnp_params', 'coverage'),
+    filter_low_complexity_bubbles = config.getboolean('discosnp_params', 'filter_low_complexity_bubbles'),
+    max_threads = config.get('discosnp_params', 'max_threads'),
     bwa_k = config.get('read_mapping', 'bwa_deterministic'),
     rg_pl = config.get('read_mapping', 'read_group_PL'),
     rg_pu = config.get('read_mapping', 'read_group_PU'),
@@ -89,10 +102,12 @@ env = Environment(
     cutadapt = '{} exec -B $cwd {} cutadapt'.format(singularity, cutadapt_img),
     bwa = '{} exec -B $cwd {} bwa mem'.format(singularity, bwa_img),
     samtools = '{} exec -B $cwd {} samtools'.format(singularity, samtools_img),
-    bcftools = '{} exec -B $cwd {} bcftools'.format(singularity, bcftools_img)
+    bcftools = '{} exec -B $cwd {} bcftools'.format(singularity, bcftools_img),
+    bedtools = '{} exec -B $cwd {} bedtools'.format(singularity, bedtools_img),
+    discosnp = '{} run --pwd $cwd -B $cwd {} run_discoSnp++.sh'.format(singularity, discosnp_img),
+    freebayes = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} freebayes'.format(docker, freebayes_img),
+    vardict = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} vardict-java'.format(docker, vardict_img)
 )
-
-# TargetSignatures('content')
 
 # Help(vars.GenerateHelpText(env))
 
@@ -221,6 +236,15 @@ gatk_gt, gatk_gt_log = env.Command(
               '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
 )
 
+gatk_g_normalized, gatk_g_norm_log = env.Command(
+    target = ['$out/$called_out/$gvcf_out/${variant}_${gatk_out}_normalized.g.vcf',
+              '$log/$called_out/$gvcf_out/${variant}_${gatk_out}_normalized.g.log'],
+    source = ['$reference',
+              gatk_gvcf],
+    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
+              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+)
+
 gatk_normalized, gatk_norm_log = env.Command(
     target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized.vcf',
               '$log/$called_out/${variant}_${gatk_out}_normalized.log'],
@@ -241,7 +265,7 @@ pileup = env.Command(
 )
 
 bcftools_gvcf = env.Command(
-    target = '$out/$called_out/$gvcf_out/${variant}_${bcftools_out}_g.vcf',
+    target = '$out/$called_out/$gvcf_out/${variant}_${bcftools_out}.g.vcf',
     source = pileup,
     action = '$bcftools call -g $min_read_depth -mO v -o $TARGET $SOURCE' 
 )
@@ -252,3 +276,128 @@ bcftools_vcf = env.Command(
     action = '$bcftools convert --gvcf2vcf $SOURCE -O v -o $TARGET'
 )
 
+bcftools_g_normalized, bcftools_g_norm_log = env.Command(
+    target = ['$out/$called_out/$gvcf_out/${variant}_${bcftools_out}_normalized.g.vcf',
+              '$log/$called_out/$gvcf_out/${variant}_${bcftools_out}_normalized.g.log'],
+    source = ['$reference',
+              bcftools_gvcf],
+    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
+              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+)
+
+bcftools_normalized, bcftools_norm_log = env.Command(
+    target = ['$out/$called_out/$gvcf_out/${variant}_${bcftools_out}_normalized.vcf',
+              '$log/$called_out/$gvcf_out/${variant}_${bcftools_out}_normalized.log'],
+    source = ['$reference',
+              bcftools_vcf],
+    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
+              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+)
+
+
+# ##################### FreeBayes  #######################
+
+freebayes_gvcf = env.Command(
+    target = '$out/$called_out/$gvcf_out/${variant}_${freebayes_out}.g.vcf',
+    source = ['$reference',
+              mq_filtered_bam],
+    action = ('$freebayes -f ${SOURCES[0]} -p $ploidy --min-alternate-fraction $allele_fraction '
+              '--gvcf ${SOURCES[1]} > $TARGET')
+)
+
+freebayes_vcf = env.Command(
+    target = '$out/$called_out/$freebayes_out/${variant}_${freebayes_out}.vcf',
+    source = ['$reference',
+              mq_filtered_bam],
+    action = ('$freebayes -f ${SOURCES[0]} -p $ploidy --min-alternate-fraction $allele_fraction '
+              '${SOURCES[1]} > $TARGET')
+)
+
+freebayes_g_normalized, freebayes_g_norm_log = env.Command(
+    target = ['$out/$called_out/$gvcf_out/${variant}_${freebayes_out}_normalized.g.vcf',
+              '$log/$called_out/$gvcf_out/${variant}_${freebayes_out}_normalized.g.log'],
+    source = ['$reference',
+              freebayes_gvcf],
+    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
+              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+)
+
+freebayes_normalized, freebayes_norm_log = env.Command(
+    target = ['$out/$called_out/${variant}_${freebayes_out}_normalized.vcf',
+              '$log/$called_out/${variant}_${freebayes_out}_normalized.log'],
+    source = ['$reference',
+              freebayes_vcf],
+    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
+              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+)
+
+
+# ################## DiscoSnp ###################
+
+ref_fof = env.Command(
+    target = '$out/$called_out/$discosnp_out/${ref_name}_fof.txt',
+    source = None,
+    action = ('echo ${cwd}/${out}/${reads_out}/${ref_name}.R1.trimmed.fq.gz > $TARGET; '
+              'echo ${cwd}/${out}/${reads_out}/${ref_name}.R2.trimmed.fq.gz >> $TARGET')
+)
+
+variant_fof = env.Command(
+    target = '$out/$called_out/$discosnp_out/${variant}_fof.txt',
+    source = None,
+    action = ('echo ${cwd}/${out}/${reads_out}/${variant}.R1.trimmed.fq.gz > $TARGET; '
+              'echo ${cwd}/${out}/${reads_out}/${variant}.R2.trimmed.fq.gz >> $TARGET')
+)
+
+fof = env.Command(
+    target = '$out/$called_out/$discosnp_out/${ref_name}_${variant}_fof.txt',
+    source = None,
+    action = ('echo ${ref_name}_fof.txt > $TARGET; '
+              'echo ${variant}_fof.txt >> $TARGET')
+)
+
+#discosnp_vcf, discosnp_log = env.Command(
+#    target = ['$out/$called_out/$discosnp_out/${ref_name}_${variant}_k_${kmer_size}_c_${coverage}_D_100_P_${snp_per_bubble}_b_${disco_mode}_coherent.vcf',
+#              '$log/$called_out/${ref_name}_${variant}_discosnp.log'],
+#    source = ['$reference',
+#              fof],
+#    action = ('$discosnp -r ${SOURCES[1]} -P $snp_per_bubble -b $disco_mode -k $kmer_size -c $coverage '
+#              '-T -l -G ${SOURCES[0]} -p ${ref_name}_${variant} -u $max_threads > ${TARGETS[-1]} 2>&1')
+#)
+
+#discosnp_normalized, discosnp_norm_log = env.Command(
+#    target = ['$out/$called_out/$discosnp_out/${ref_name}_${variant}_discosnp_normalized.vcf',
+#              '$log/$called_out/$discosnp_out/${ref_name}_${variant}_discosnp_normalized.log'],
+#    source = ['$reference',
+#              discosnp_vcf],
+#    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
+#              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+#)
+
+
+# ################### VarDict ####################
+
+bedfile = env.Command(
+    target = '$out/$deduped_out/${variant}_deduped_mq10.bed',
+    source = mq_filtered_bam,
+    action = '$bedtools bamtobed -i $SOURCE > $TARGET'
+)
+
+#vardict_vcf = env.Command(
+#    target = '$out/$called_out/${variant}_vardict.vcf',
+#    source = ['$reference',
+#              mq_filtered_bam,
+#              bedfile],
+#    action = ('$vardict -G ${SOURCES[0]} -f $allele_fraction -N $variant -b ${SOURCES[1]} '
+#              '-c 1 -S 2 -E 3 -g 4 ${SOURCES[2]} | ${vardict_scripts}/teststrandbias.R '
+#              '| ${vardict_scripts}/var2vcf_valid.pl -N $variant -E -f $allele_fraction '
+#              '> $TARGET')
+#)
+
+#vardict_normalized, vardict_norm_log = env.Command(
+#    target = ['$out/$called_out/${variant}_${vardict_out}_normalized.vcf',
+#              '$log/$called_out/${variant}_${vardict_out}_normalized.log'],
+#    source = ['$reference',
+#              vardict_vcf],
+#    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
+#              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+#)
