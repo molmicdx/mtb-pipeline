@@ -376,6 +376,7 @@ deepvariant_pass = env.Command(
     action = 'grep "#" $SOURCE > $TARGET; grep "$$(printf \'\\t\')PASS$$(printf \'\\t\')" $SOURCE >> $TARGET'
 )
 
+
 # ################### delly #####################
 
 delly_bcf, delly_log  = env.Command(
@@ -401,6 +402,7 @@ delly_normalized, delly_norm_log = env.Command(
               '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
 )
 
+
 # ################### Lancet ####################
 
 lancet_vcf, lancet_log = env.Command(
@@ -416,9 +418,10 @@ lancet_vcf, lancet_log = env.Command(
 
 lancet_config = env.Command(
     target = '$log/$called_out/${variant}_${ref_name}_${lancet_out}_config.txt',
-    source = '${cwd}/config.txt',
-    action = 'mv $SOURCE $TARGET'
+    source = None,
+    action = 'mv ${cwd}/config.txt $TARGET'
 )
+
 
 # ################## DiscoSnp ###################
 
