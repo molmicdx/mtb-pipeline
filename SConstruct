@@ -20,6 +20,8 @@ bedtools_img = config.get('singularity', 'bedtools')
 discosnp_img = config.get('singularity', 'discosnp')
 docker = config.get('docker', 'docker')
 freebayes_img = config.get('docker', 'freebayes')
+deepvariant_img = config.get('docker', 'deepvariant')
+delly_img = config.get('singularity', 'delly')
 vardict_img = config.get('docker', 'vardict')
 
 from SCons.Script import (Environment, Variables, Help, Decider)
@@ -57,6 +59,7 @@ env = Environment(
     venv_config = config.get('DEFAULT', 'virtualenv'),
     reference = config.get('DEFAULT', 'reference_genome'),
     ref_name = config.get('DEFAULT', 'reference_name'),
+    accession = config.get('DEFAULT', 'reference_accession'),
     variant = config.get('variant_simulation', 'variant_name'),
     variants_config = config.get('variant_simulation', 'variants_config'),
     read1_q = config.get('variant_simulation', 'r1_qual_profile'),
@@ -93,7 +96,7 @@ env = Environment(
     kmer_size = config.get('discosnp_params', 'kmer_size'),
     coverage = config.get('discosnp_params', 'coverage'),
     filter_low_complexity_bubbles = config.getboolean('discosnp_params', 'filter_low_complexity_bubbles'),
-    max_threads = config.get('discosnp_params', 'max_threads'),
+    max_threads = config.get('variant_calling', 'max_threads'),
     bwa_k = config.get('read_mapping', 'bwa_deterministic'),
     rg_pl = config.get('read_mapping', 'read_group_PL'),
     rg_pu = config.get('read_mapping', 'read_group_PU'),
@@ -104,8 +107,10 @@ env = Environment(
     samtools = '{} exec -B $cwd {} samtools'.format(singularity, samtools_img),
     bcftools = '{} exec -B $cwd {} bcftools'.format(singularity, bcftools_img),
     bedtools = '{} exec -B $cwd {} bedtools'.format(singularity, bedtools_img),
-    discosnp = '{} run --pwd $cwd -B $cwd {} run_discoSnp++.sh'.format(singularity, discosnp_img),
+    discosnp = '{} run --pwd $cwd -B $cwd {}'.format(singularity, discosnp_img),
+    delly = '{} exec -B $cwd {} delly'.format(singularity, delly_img),
     freebayes = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} freebayes'.format(docker, freebayes_img),
+    deepvariant = '{} run -v $cwd:/input -v $cwd:/output --rm {} /opt/deepvariant/bin/run_deepvariant'.format(docker, deepvariant_img),
     vardict = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} vardict-java'.format(docker, vardict_img)
 )
 
@@ -332,6 +337,79 @@ freebayes_normalized, freebayes_norm_log = env.Command(
 )
 
 
+# ################# DeepVariant #################
+
+deepvariant_gvcf, deepvariant_vcf, deepvariant_log = env.Command(
+    target = ['$out/$called_out/$gvcf_out/${variant}_${deepvariant_out}.g.vcf',
+              '$out/$called_out/${variant}_${deepvariant_out}.vcf',
+              '$log/$called_out/${variant}_${deepvariant_out}.log'],
+    source = ['$reference',
+              mq_filtered_bam],
+    action = ('$deepvariant --model_type=WGS --ref=/input/${SOURCES[0]} --reads=/input/${SOURCES[1]} '
+              '--output_gvcf=/output/${TARGETS[0]} --output_vcf=/output/${TARGETS[1]} --num_shards=$max_threads '
+              '--logging_dir=/output/$out/$called_out/${deepvariant_out}/ > ${TARGETS[-1]} 2>&1')
+)
+
+deepvariant_g_normalized, deepvariant_g_norm_log = env.Command(
+    target = ['$out/$called_out/$gvcf_out/${variant}_${deepvariant_out}_normalized.g.vcf',
+              '$log/$called_out/$gvcf_out/${variant}_${deepvariant_out}_normalized.g.log'],
+    source = ['$reference',
+              deepvariant_gvcf],
+    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
+              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+)
+
+deepvariant_normalized, deepvariant_norm_log = env.Command(
+    target = ['$out/$called_out/${variant}_${deepvariant_out}_normalized.vcf',
+              '$log/$called_out/${variant}_${deepvariant_out}_normalized.log'],
+    source = ['$reference',
+              deepvariant_vcf],
+    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
+              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+)
+
+deepvariant_pass = env.Command(
+    target = '$out/$called_out/${variant}_${deepvariant_out}_normalized_PASS.vcf',
+    source = deepvariant_normalized,
+    action = 'grep "#" $SOURCE > $TARGET; grep "$$(printf \'\\t\')PASS$$(printf \'\\t\')" $SOURCE >> $TARGET'
+)
+
+# ################### delly #####################
+
+delly_bcf, delly_log  = env.Command(
+    target = ['$out/$called_out/${variant}_${delly_out}.bcf',
+              '$log/$called_out/${variant}_${delly_out}.log'],
+    source = ['$reference',
+              mq_filtered_bam],
+    action = '$delly call -g ${SOURCES[0]} -o ${TARGETS[0]} ${SOURCES[1]} > ${TARGETS[-1]} 2>&1'
+)
+
+delly_vcf = env.Command(
+    target = '$out/$called_out/${variant}_${delly_out}.vcf',
+    source = delly_bcf,
+    action = '$bcftools view $SOURCE -O v -o $TARGET'
+)
+
+delly_normalized, delly_norm_log = env.Command(
+    target = ['$out/$called_out/${variant}_${delly_out}_normalized.vcf',
+              '$log/$called_out/${variant}_${delly_out}_normalized.log'],
+    source = ['$reference',
+              delly_vcf],
+    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
+              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+)
+
+# ################### Lancet ####################
+
+#lancet_vcf = env.Command(
+#    target = '$out/$called_out/${variant}_${lancet_out}/.vcf',
+#    source = ['$reference',
+#              mq_filtered_bam,
+#              '$out/$deduped_out/${ref_name}_deduped_mq10.bam'],
+#    action = './bin/lancet --tumor ${SOURCES[1]} --normal ${SOURCES[2]} --ref ${SOURCES[0]} '
+#             ' --reg $accession 
+#)
+
 # ################## DiscoSnp ###################
 
 ref_fof = env.Command(
@@ -350,18 +428,20 @@ variant_fof = env.Command(
 
 fof = env.Command(
     target = '$out/$called_out/$discosnp_out/${ref_name}_${variant}_fof.txt',
-    source = None,
+    source = [ref_fof,
+              variant_fof],
     action = ('echo ${ref_name}_fof.txt > $TARGET; '
               'echo ${variant}_fof.txt >> $TARGET')
 )
 
 #discosnp_vcf, discosnp_log = env.Command(
-#    target = ['$out/$called_out/$discosnp_out/${ref_name}_${variant}_k_${kmer_size}_c_${coverage}_D_100_P_${snp_per_bubble}_b_${disco_mode}_coherent.vcf',
+#    target = ['$out/${ref_name}_${variant}_k_${kmer_size}_c_${coverage}_D_100_P_${snp_per_bubble}_b_${disco_mode}_coherent.vcf',
 #              '$log/$called_out/${ref_name}_${variant}_discosnp.log'],
 #    source = ['$reference',
-#              fof],
-#    action = ('$discosnp -r ${SOURCES[1]} -P $snp_per_bubble -b $disco_mode -k $kmer_size -c $coverage '
-#              '-T -l -G ${SOURCES[0]} -p ${ref_name}_${variant} -u $max_threads > ${TARGETS[-1]} 2>&1')
+#              '$out/$called_out/$discosnp_out/${ref_name}_${variant}_fof.txt'],
+#    action = ('$discosnp $out -r $called_out/$discosnp_out/${ref_name}_${variant}_fof.txt -P $snp_per_bubble '
+#              '-b $disco_mode -k $kmer_size -c $coverage -T -l '
+#              '-G ../$reference -p ${ref_name}_${variant} -u $max_threads > ${TARGETS[-1]} 2>&1')
 #)
 
 #discosnp_normalized, discosnp_norm_log = env.Command(
