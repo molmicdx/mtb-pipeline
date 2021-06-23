@@ -119,7 +119,8 @@ env = Environment(
 # ############### start inputs ################
 # ############# Simulate Variants #############
 simulated_variants_table, simulated_variants_fa = env.Command(
-    target = ['$out/$variants_out/${variant}.txt', '$out/$variants_out/${variant}.fa'],
+    target = ['$out/$variants_out/${variant}.txt', 
+              '$out/$variants_out/${variant}.fa'],
     source = '$reference',
     action = ('python bin/variants.py --settings $variants_config $SOURCE $TARGETS')
 )
@@ -171,15 +172,16 @@ R1trimmed, R2trimmed, trimlog  = env.Command(
 # ################ Map Reads ###################
 
 sam = env.Command(
-    target = ['$out/$mapped_out/${variant}_trimmed.sam'],
+    target = ['$out/$mapped_out/${variant}_trimmed.sam',
+              '$log/$mapped_out/${variant}_trimmed_mapped.log'],
     source = ['$reference', R1trimmed, R2trimmed],
     action = ('$bwa $SOURCES -K $bwa_k '
               '-R \'@RG\\tID:${variant}\\tLB:LB_${variant}\\tPL:${rg_pl}\\tPU:${rg_pu}\\tSM:${variant}\' '
-              '> $TARGET')
+              '> ${TARGETS[0]} 2>${TARGETS[-1]}')
 )
 
 sorted_bam = env.Command(
-    target = ['$out/$mapped_out/${variant}_trimmed-sorted.bam'],
+    target = '$out/$mapped_out/${variant}_trimmed-sorted.bam',
     source = sam,
     action = '$samtools sort $SOURCE $out/$mapped_out/${variant}_trimmed-sorted'
 )
