@@ -401,14 +401,22 @@ delly_normalized, delly_norm_log = env.Command(
 
 # ################### Lancet ####################
 
-#lancet_vcf = env.Command(
-#    target = '$out/$called_out/${variant}_${lancet_out}/.vcf',
-#    source = ['$reference',
-#              mq_filtered_bam,
-#              '$out/$deduped_out/${ref_name}_deduped_mq10.bam'],
-#    action = './bin/lancet --tumor ${SOURCES[1]} --normal ${SOURCES[2]} --ref ${SOURCES[0]} '
-#             ' --reg $accession 
-#)
+lancet_vcf, lancet_log = env.Command(
+    target = ['$out/$called_out/${variant}_${ref_name}_${lancet_out}.vcf',
+              '$log/$called_out/${variant}_${ref_name}_${lancet_out}.log'],
+    source = ['$reference',
+              mq_filtered_bam,
+              '$out/$deduped_out/${ref_name}_deduped_mq10.bam'],
+    action = ('./bin/lancet --tumor ${SOURCES[1]} --normal ${SOURCES[2]} --ref ${SOURCES[0]} '
+              '--reg $accession --min-vaf-tumor $allele_fraction --low-cov $min_read_depth '
+              '--num-threads $max_threads --print-config-file > ${TARGETS[0]} 2>${TARGETS[-1]}')
+)
+
+lancet_config = env.Command(
+    target = '$log/$called_out/${variant}_${ref_name}_${lancet_out}_config.txt',
+    source = '${cwd}/config.txt',
+    action = 'mv $SOURCE $TARGET'
+)
 
 # ################## DiscoSnp ###################
 
@@ -440,8 +448,8 @@ fof = env.Command(
 #    source = ['$reference',
 #              '$out/$called_out/$discosnp_out/${ref_name}_${variant}_fof.txt'],
 #    action = ('$discosnp $out -r $called_out/$discosnp_out/${ref_name}_${variant}_fof.txt -P $snp_per_bubble '
-#              '-b $disco_mode -k $kmer_size -c $coverage -T -l '
-#              '-G ../$reference -p ${ref_name}_${variant} -u $max_threads > ${TARGETS[-1]} 2>&1')
+#              '-b $disco_mode -k $kmer_size -c $coverage -T -l -G ../${SOURCES[0]} '
+#              '-p ${ref_name}_${variant} -u $max_threads > ${TARGETS[-1]} 2>&1')
 #)
 
 #discosnp_normalized, discosnp_norm_log = env.Command(
