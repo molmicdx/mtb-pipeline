@@ -481,6 +481,33 @@ fof = env.Command(
 #              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
 #)
 
+#discosnp_formatted = env.Command(
+#    target = '$out/$called_out/$discosnp_out/${ref_name}_${variant}_discosnp-edit_normalized.vcf',
+#    source = discosnp_normalized,
+#    action = ('sed -e \'s/##SAMPLE/##sample/\' -e \'s/G1/${ref_name}\' -e \'s/G2/${variant}/\' '
+#              '< $SOURCE > $TARGET')
+#)
+
+#discosnp_final_vcf = env.Command(
+#    target = '$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized.vcf',
+#    source = discosnp_formatted,
+#    action = ('for sample in $$(zgrep -m 1 "^#CHROM" $SOURCE | cut -f10-); do '
+#              '    $bcftools view -c 1 -Ov -s $$sample -o $out/$called_out/$$sample\'_discosnp-edit_normalized.vcf\' $SOURCE; done; '
+#              'rm $out/$called_out/${ref_name}_discosnp-edit_normalized.vcf')
+#)
+
+#discosnp_pass = env.Command(
+#    target = '$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASS.vcf',
+#    source = discosnp_final_vcf,
+#    action = 'grep "#" $SOURCE > $TARGET; grep "$$(printf '\t')PASS$$(printf '\t')" $SOURCE >> $TARGET'
+#)
+
+#discosnp_pass_sorted = env.Command(
+#    target = '$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted.vcf',
+#    source = discosnp_pass,
+#    action = '$gatk SortVcf -I $SOURCE -O $TARGET'
+#)
+
 
 # ################### VarDict ####################
 
