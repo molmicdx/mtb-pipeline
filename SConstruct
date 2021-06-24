@@ -447,14 +447,13 @@ fof = env.Command(
               'echo ${variant}_fof.txt >> $TARGET')
 )
 
-#discosnp_vcf, discosnp_log = env.Command(
-#    target = ['$out/${ref_name}_${variant}_k_${kmer_size}_c_${coverage}_D_100_P_${snp_per_bubble}_b_${disco_mode}_coherent.vcf',
-#              '$log/$called_out/${ref_name}_${variant}_discosnp.log'],
+#discosnp_vcf = env.Command(
+#    target = '$out/${ref_name}_${variant}_k_${kmer_size}_c_${coverage}_D_100_P_${snp_per_bubble}_b_${disco_mode}_coherent.vcf',
 #    source = ['$reference',
 #              '$out/$called_out/$discosnp_out/${ref_name}_${variant}_fof.txt'],
 #    action = ('$discosnp $out -r $called_out/$discosnp_out/${ref_name}_${variant}_fof.txt -P $snp_per_bubble '
 #              '-b $disco_mode -k $kmer_size -c $coverage -T -l -G ../${SOURCES[0]} '
-#              '-p ${ref_name}_${variant} -u $max_threads > ${TARGETS[-1]} 2>&1')
+#              '-p ${ref_name}_${variant} -u $max_threads')
 #)
 
 #discosnp_normalized, discosnp_norm_log = env.Command(
@@ -475,22 +474,22 @@ bedfile = env.Command(
     action = '$bedtools bamtobed -i $SOURCE > $TARGET'
 )
 
-#vardict_vcf = env.Command(
-#    target = '$out/$called_out/${variant}_vardict.vcf',
-#    source = ['$reference',
-#              mq_filtered_bam,
-#              bedfile],
-#    action = ('$vardict -G ${SOURCES[0]} -f $allele_fraction -N $variant -b ${SOURCES[1]} '
-#              '-c 1 -S 2 -E 3 -g 4 ${SOURCES[2]} | ${vardict_scripts}/teststrandbias.R '
-#              '| ${vardict_scripts}/var2vcf_valid.pl -N $variant -E -f $allele_fraction '
-#              '> $TARGET')
-#)
+vardict_vcf = env.Command(
+    target = '$out/$called_out/${variant}_vardict.vcf',
+    source = ['$reference',
+              mq_filtered_bam,
+              bedfile],
+    action = ('$vardict -G ${SOURCES[0]} -f $allele_fraction -N $variant -b ${SOURCES[1]} '
+              '-c 1 -S 2 -E 3 -g 4 ${SOURCES[2]} | ${vardict_scripts}/teststrandbias.R '
+              '| ${vardict_scripts}/var2vcf_valid.pl -N $variant -E -f $allele_fraction '
+              '> $TARGET')
+)
 
-#vardict_normalized, vardict_norm_log = env.Command(
-#    target = ['$out/$called_out/${variant}_${vardict_out}_normalized.vcf',
-#              '$log/$called_out/${variant}_${vardict_out}_normalized.log'],
-#    source = ['$reference',
-#              vardict_vcf],
-#    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
-#              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
-#)
+vardict_normalized, vardict_norm_log = env.Command(
+    target = ['$out/$called_out/${variant}_${vardict_out}_normalized.vcf',
+              '$log/$called_out/${variant}_${vardict_out}_normalized.log'],
+    source = ['$reference',
+              vardict_vcf],
+    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
+              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+)
