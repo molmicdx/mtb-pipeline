@@ -422,6 +422,23 @@ lancet_config = env.Command(
     action = 'mv ${cwd}/config.txt $TARGET'
 )
 
+lancet_normalized, lancet_norm_log = env.Command(
+    target = ['$out/$called_out/${variant}_${ref_name}_${lancet_out}_normalized.vcf',
+              '$log/$called_out/${variant}_${ref_name}_${lancet_out}_normalized.log'],
+    source = ['$reference',
+              lancet_vcf],
+    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
+              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+)
+
+lancet_final_vcf = env.Command(
+    target = '$out/$called_out/${variant}_${lancet_out}_normalized.vcf',
+    source = lancet_normalized,
+    action = ('for sample in $$(zgrep -m 1 "^#CHROM" $SOURCE | cut -f10-); do '
+              '    $bcftools view -c 1 -Ov -s $$sample -o $out/$called_out/$$sample\'_${lancet_out}_normalized.vcf\' $SOURCE; done; '
+              'rm $out/$called_out/${ref_name}_${lancet_out}_normalized.vcf')
+)
+
 
 # ################## DiscoSnp ###################
 
@@ -449,10 +466,9 @@ fof = env.Command(
 
 #discosnp_vcf = env.Command(
 #    target = '$out/${ref_name}_${variant}_k_${kmer_size}_c_${coverage}_D_100_P_${snp_per_bubble}_b_${disco_mode}_coherent.vcf',
-#    source = ['$reference',
-#              '$out/$called_out/$discosnp_out/${ref_name}_${variant}_fof.txt'],
+#    source = '$reference',
 #    action = ('$discosnp $out -r $called_out/$discosnp_out/${ref_name}_${variant}_fof.txt -P $snp_per_bubble '
-#              '-b $disco_mode -k $kmer_size -c $coverage -T -l -G ../${SOURCES[0]} '
+#              '-b $disco_mode -k $kmer_size -c $coverage -T -l -G ../$SOURCE '
 #              '-p ${ref_name}_${variant} -u $max_threads')
 #)
 
