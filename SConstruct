@@ -137,7 +137,7 @@ normalized_variant_vcf, normalized_log = env.Command(
               '$log/$variants_out/${variant}_normalized.log'],
     source = simulated_variant_vcf,
     action = ('$gatk LeftAlignAndTrimVariants -R $reference -V $SOURCE -O ${TARGETS[0]} '
-              '> ${TARGETS[-1]} 2<&1')
+              '> ${TARGETS[-1]} 2>&1')
 )
 
 # ########### Simulate NGS Reads ##############
@@ -148,7 +148,7 @@ sim_R1, sim_R2, simreads_log = env.Command(
     source = simulated_variants_fa,
     action = ('./${venv_config}/bin/art_illumina -1 $read1_q -2 $read2_q -p -sam '
               '-i $SOURCE -l $read_len -f $read_depth -m $frag_len -s $sd '
-              '-o $out/$reads_out/${variant}_R > ${TARGETS[-1]} 2<&1')
+              '-o $out/$reads_out/${variant}_R > ${TARGETS[-1]} 2>&1')
 )
 
 gzsimR1, gzsimR2 = env.Command(
@@ -166,7 +166,7 @@ R1trimmed, R2trimmed, trimlog  = env.Command(
     source = [gzsimR1, gzsimR2],
     action = ('$cutadapt --cores $cutadapt_cores -q $min_read_q -b file:$adaptors -B file:$adaptors '
               '--minimum-length $min_read_len -o ${TARGETS[0]} -p ${TARGETS[1]} $SOURCES '
-              '> ${TARGETS[-1]} 2<&1')
+              '> ${TARGETS[-1]} 2>&1')
 )
 
 # ################ Map Reads ###################
