@@ -52,7 +52,8 @@ vars.Add('nproc', 'Number of concurrent processes', default=12)
 # SHELLOPTS sets shell options to fail (including piped commands) with
 # nonzero exit status; this requires bash.
 env = Environment(
-    ENV = dict(os.environ, PATH=PATH, SHELLOPTS='errexit:pipefail'),
+   # ENV = dict(os.environ, PATH=PATH, SHELLOPTS='errexit:pipefail'),
+    ENV = dict(os.environ, PATH=PATH),
     variables = vars,
     SHELL = 'bash',
     cwd = os.getcwd(),
@@ -268,7 +269,7 @@ pileup = env.Command(
     source = ['$reference',
               mq_filtered_bam],
     action = ('$samtools mpileup -m $min_read_depth -F $allele_fraction -u -f ${SOURCES[0]} '
-              '-d $max_read_depth -A -B ${SOURCES[1]} -vo $TARGET')
+              '-d $max_read_depth -A -B ${SOURCES[1]} -vo $TARGET 2> logs/called/test_pileup.log')
 )
 
 bcftools_gvcf = env.Command(
@@ -464,49 +465,53 @@ fof = env.Command(
               'echo ${variant}_fof.txt >> $TARGET')
 )
 
-#discosnp_vcf = env.Command(
-#    target = '$out/${ref_name}_${variant}_k_${kmer_size}_c_${coverage}_D_100_P_${snp_per_bubble}_b_${disco_mode}_coherent.vcf',
-#    source = '$reference',
-#    action = ('$discosnp $out -r $called_out/$discosnp_out/${ref_name}_${variant}_fof.txt -P $snp_per_bubble '
-#              '-b $disco_mode -k $kmer_size -c $coverage -T -l -G ../$SOURCE '
-#              '-p ${ref_name}_${variant} -u $max_threads')
-#)
+discosnp_vcf, discosnp_log = env.Command(
+    target = ['$out/$called_out/$discosnp_out/${ref_name}_${variant}_k_${kmer_size}_c_${coverage}_D_100_P_${snp_per_bubble}_b_${disco_mode}_coherent.vcf',
+              '$log/$called_out/${ref_name}_${variant}_discosnp.log'],    
+    source = ['$reference',
+              fof],
+    action = ('$discosnp $out -r ../${SOURCES[1]} -P $snp_per_bubble '
+              '-b $disco_mode -k $kmer_size -c $coverage -T -l '
+              '-G ../${SOURCES[0]} -p ${ref_name}_${variant} -u $max_threads > ${TARGETS[-1]} 2>&1; '
+              'mv $out/${ref_name}_${variant}* $out/$called_out/$discosnp_out/')
+)
 
-#discosnp_normalized, discosnp_norm_log = env.Command(
-#    target = ['$out/$called_out/$discosnp_out/${ref_name}_${variant}_discosnp_normalized.vcf',
-#              '$log/$called_out/$discosnp_out/${ref_name}_${variant}_discosnp_normalized.log'],
-#    source = ['$reference',
-#              discosnp_vcf],
-#    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
-#              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
-#)
+discosnp_normalized, discosnp_norm_log = env.Command(
+    target = ['$out/$called_out/$discosnp_out/${ref_name}_${variant}_discosnp_normalized.vcf',
+              '$log/$called_out/$discosnp_out/${ref_name}_${variant}_discosnp_normalized.log'],
+    source = ['$reference',
+              discosnp_vcf],
+    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
+              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+)
 
-#discosnp_formatted = env.Command(
-#    target = '$out/$called_out/$discosnp_out/${ref_name}_${variant}_discosnp-edit_normalized.vcf',
-#    source = discosnp_normalized,
-#    action = ('sed -e \'s/##SAMPLE/##sample/\' -e \'s/G1/${ref_name}\' -e \'s/G2/${variant}/\' '
-#              '< $SOURCE > $TARGET')
-#)
+discosnp_formatted = env.Command(
+    target = '$out/$called_out/$discosnp_out/${ref_name}_${variant}_discosnp-edit_normalized.vcf',
+    source = discosnp_normalized,
+    action = ('sed -e \'s/##SAMPLE/##sample/\' -e \'s/G1/${ref_name}/\' -e \'s/G2/${variant}/\' '
+              '< $SOURCE > $TARGET')
+)
 
-#discosnp_final_vcf = env.Command(
-#    target = '$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized.vcf',
-#    source = discosnp_formatted,
-#    action = ('for sample in $$(zgrep -m 1 "^#CHROM" $SOURCE | cut -f10-); do '
-#              '    $bcftools view -c 1 -Ov -s $$sample -o $out/$called_out/$$sample\'_discosnp-edit_normalized.vcf\' $SOURCE; done; '
-#              'rm $out/$called_out/${ref_name}_discosnp-edit_normalized.vcf')
-#)
+discosnp_final_vcf = env.Command(
+    target = '$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized.vcf',
+    source = discosnp_formatted,
+    action = ('for sample in $$(zgrep -m 1 "^#CHROM" $SOURCE | cut -f10-); do '
+              '    $bcftools view -c 1 -Ov -s $$sample -o $out/$called_out/$discosnp_out/$$sample\'_discosnp-edit_normalized.vcf\' $SOURCE; done; '
+              'rm $out/$called_out/$discosnp_out/${ref_name}_discosnp-edit_normalized.vcf')
+)
 
-#discosnp_pass = env.Command(
-#    target = '$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASS.vcf',
-#    source = discosnp_final_vcf,
-#    action = 'grep "#" $SOURCE > $TARGET; grep "$$(printf '\t')PASS$$(printf '\t')" $SOURCE >> $TARGET'
-#)
+discosnp_pass = env.Command(
+    target = '$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASS.vcf',
+    source = discosnp_final_vcf,
+    action = 'grep "#" $SOURCE > $TARGET; grep "$$(printf \'\\t\')PASS$$(printf \'\\t\')" $SOURCE >> $TARGET'
+)
 
-#discosnp_pass_sorted = env.Command(
-#    target = '$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted.vcf',
-#    source = discosnp_pass,
-#    action = '$gatk SortVcf -I $SOURCE -O $TARGET'
-#)
+discosnp_pass_sorted, discosnp_ps_log = env.Command(
+    target = ['$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted.vcf',
+              '$log/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted.log'],
+    source = discosnp_pass,
+    action = '$gatk SortVcf -I $SOURCE -O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1 '
+)
 
 
 # ################### VarDict ####################
