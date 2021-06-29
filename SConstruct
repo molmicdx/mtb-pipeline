@@ -102,6 +102,10 @@ env = Environment(
     rg_pl = config.get('read_mapping', 'read_group_PL'),
     rg_pu = config.get('read_mapping', 'read_group_PU'),
     mapq = config.get('read_mapping', 'min_mapq'),
+    bgz_out = config.get('output', 'bgzipped'),
+    igv_out = config.get('output', 'igv_reports'),
+    igv_info = config.get('report', 'igv_info'),
+    igv_flank = config.get('report', 'igv_flanking_sites'),
     gatk = '{} exec -B $cwd {} gatk'.format(singularity, gatk_img),
     cutadapt = '{} exec -B $cwd {} cutadapt'.format(singularity, cutadapt_img),
     bwa = '{} exec -B $cwd {} bwa mem'.format(singularity, bwa_img),
@@ -262,6 +266,24 @@ gatk_normalized, gatk_norm_log = env.Command(
               '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
 )
 
+gatk_bgz = env.Command(
+    target = '$out/$bgz_out/${variant}_${gatk_out}_normalized.vcf.gz',
+    source = gatk_normalized,
+    action = 'bgzip < $SOURCE > $TARGET'
+)
+
+gatk_tbi, gatk_igv, gatk_igv_log = env.Command(
+    target = ['$out/$bgz_out/${variant}_${gatk_out}_normalized.vcf.gz.tbi',
+              '$out/$igv_out/${variant}_${gatk_out}_igv.html',
+              '$log/$igv_out/${variant}_${gatk_out}_igv.log'],
+    source = [gatk_bgz,
+              '$reference',
+              mq_filtered_bam],
+    action = ('tabix -f ${SOURCES[0]}; create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
+              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
+)
+
+
 # ##################### bcftools #######################
 
 pileup = env.Command(
@@ -280,8 +302,8 @@ bcftools_gvcf = env.Command(
 
 bcftools_vcf = env.Command(
     target = '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}.vcf',
-    source = bcftools_gvcf,
-    action = '$bcftools convert --gvcf2vcf $SOURCE -O v -o $TARGET'
+    source = pileup,
+    action = '$bcftools call -mvO v -o $TARGET $SOURCE'
 )
 
 bcftools_g_normalized, bcftools_g_norm_log = env.Command(
@@ -294,12 +316,30 @@ bcftools_g_normalized, bcftools_g_norm_log = env.Command(
 )
 
 bcftools_normalized, bcftools_norm_log = env.Command(
-    target = ['$out/$called_out/$gvcf_out/${variant}_${bcftools_out}_normalized.vcf',
-              '$log/$called_out/$gvcf_out/${variant}_${bcftools_out}_normalized.log'],
+    target = ['$out/$called_out/${variant}_${bcftools_out}_normalized.vcf',
+              '$log/$called_out/${variant}_${bcftools_out}_normalized.log'],
     source = ['$reference',
               bcftools_vcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
               '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+)
+
+bcftools_bgz = env.Command(
+    target = '$out/$bgz_out/${variant}_${bcftools_out}_normalized.vcf.gz',
+    source = bcftools_normalized,
+    action = 'bgzip < $SOURCE > $TARGET'
+)
+
+bcftools_tbi, bcftools_igv, bcftools_igv_log = env.Command(
+    target = ['$out/$bgz_out/${variant}_${bcftools_out}_normalized.vcf.gz.tbi',
+              '$out/$igv_out/${variant}_${bcftools_out}_igv.html',
+              '$log/$igv_out/${variant}_${bcftools_out}_igv.log'],
+    source = [bcftools_bgz,
+              '$reference',
+              mq_filtered_bam],
+    action = ('tabix -f ${SOURCES[0]}; '
+              'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
+              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
 )
 
 
@@ -337,6 +377,24 @@ freebayes_normalized, freebayes_norm_log = env.Command(
               freebayes_vcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
               '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+)
+
+freebayes_bgz = env.Command(
+    target = '$out/$bgz_out/${variant}_${freebayes_out}_normalized.vcf.gz',
+    source = freebayes_normalized,
+    action = 'bgzip < $SOURCE > $TARGET'
+)
+
+freebayes_tbi, freebayes_igv, freebayes_igv_log = env.Command(
+    target = ['$out/$bgz_out/${variant}_${freebayes_out}_normalized.vcf.gz.tbi',
+              '$out/$igv_out/${variant}_${freebayes_out}_igv.html',
+              '$log/$igv_out/${variant}_${freebayes_out}_igv.log'],
+    source = [freebayes_bgz,
+              '$reference',
+              mq_filtered_bam],
+    action = ('tabix -f ${SOURCES[0]}; '
+              'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
+              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
 )
 
 
@@ -377,6 +435,24 @@ deepvariant_pass = env.Command(
     action = 'grep "#" $SOURCE > $TARGET; grep "$$(printf \'\\t\')PASS$$(printf \'\\t\')" $SOURCE >> $TARGET'
 )
 
+deepvariant_bgz = env.Command(
+    target = '$out/$bgz_out/${variant}_${deepvariant_out}_normalized_PASS.vcf.gz',
+    source = deepvariant_pass,
+    action = 'bgzip < $SOURCE > $TARGET'
+)
+
+deepvariant_tbi, deepvariant_igv, deepvariant_igv_log = env.Command(
+    target = ['$out/$bgz_out/${variant}_${deepvariant_out}_normalized_PASS.vcf.gz.tbi',
+              '$out/$igv_out/${variant}_${deepvariant_out}_igv.html',
+              '$log/$igv_out/${variant}_${deepvariant_out}_igv.log'],
+    source = [deepvariant_bgz,
+              '$reference',
+              mq_filtered_bam],
+    action = ('tabix -f ${SOURCES[0]}; '
+              'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
+              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
+)
+
 
 # ################### delly #####################
 
@@ -401,6 +477,24 @@ delly_normalized, delly_norm_log = env.Command(
               delly_vcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
               '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+)
+
+delly_bgz = env.Command(
+    target = '$out/$bgz_out/${variant}_${delly_out}_normalized.vcf.gz',
+    source = delly_normalized,
+    action = 'bgzip < $SOURCE > $TARGET'
+)
+
+delly_tbi, delly_igv, delly_igv_log = env.Command(
+    target = ['$out/$bgz_out/${variant}_${delly_out}_normalized.vcf.gz.tbi',
+              '$out/$igv_out/${variant}_${delly_out}_igv.html',
+              '$log/$igv_out/${variant}_${delly_out}_igv.log'],
+    source = [delly_bgz,
+              '$reference',
+              mq_filtered_bam],
+    action = ('tabix -f ${SOURCES[0]}; '
+              'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
+              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
 )
 
 
@@ -438,6 +532,24 @@ lancet_final_vcf = env.Command(
     action = ('for sample in $$(zgrep -m 1 "^#CHROM" $SOURCE | cut -f10-); do '
               '    $bcftools view -c 1 -Ov -s $$sample -o $out/$called_out/$$sample\'_${lancet_out}_normalized.vcf\' $SOURCE; done; '
               'rm $out/$called_out/${ref_name}_${lancet_out}_normalized.vcf')
+)
+
+lancet_bgz = env.Command(
+    target = '$out/$bgz_out/${variant}_${lancet_out}_normalized.vcf.gz',
+    source = lancet_final_vcf,
+    action = 'bgzip < $SOURCE > $TARGET'
+)
+
+lancet_tbi, lancet_igv, lancet_igv_log = env.Command(
+    target = ['$out/$bgz_out/${variant}_${lancet_out}_normalized.vcf.gz.tbi',
+              '$out/$igv_out/${variant}_${lancet_out}_igv.html',
+              '$log/$igv_out/${variant}_${lancet_out}_igv.log'],
+    source = [lancet_bgz,
+              '$reference',
+              mq_filtered_bam],
+    action = ('tabix -f ${SOURCES[0]}; '
+              'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
+              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
 )
 
 
@@ -513,6 +625,24 @@ discosnp_pass_sorted, discosnp_ps_log = env.Command(
     action = '$gatk SortVcf -I $SOURCE -O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1 '
 )
 
+discosnp_bgz = env.Command(
+    target = '$out/$bgz_out/${variant}_discosnp-edit_normalized_PASSsorted.vcf.gz',
+    source = discosnp_pass_sorted,
+    action = 'bgzip < $SOURCE > $TARGET'
+)
+
+discosnp_tbi, discosnp_igv, discosnp_igv_log = env.Command(
+    target = ['$out/$bgz_out/${variant}_discosnp-edit_normalized_PASSsorted.vcf.gz.tbi',
+              '$out/$igv_out/${variant}_${discosnp_out}_igv.html',
+              '$log/$igv_out/${variant}_${discosnp_out}_igv.log'],
+    source = [discosnp_bgz,
+              '$reference',
+              mq_filtered_bam],
+    action = ('tabix -f ${SOURCES[0]}; '
+              'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
+              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
+)
+
 
 # ################### VarDict ####################
 
@@ -541,3 +671,22 @@ vardict_normalized, vardict_norm_log = env.Command(
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
               '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
 )
+
+vardict_bgz = env.Command(
+    target = '$out/$bgz_out/${variant}_${vardict_out}_normalized.vcf.gz',
+    source = vardict_normalized,
+    action = 'bgzip < $SOURCE > $TARGET'
+)
+
+vardict_tbi, vardict_igv, vardict_igv_log = env.Command(
+    target = ['$out/$bgz_out/${variant}_${vardict_out}_normalized.vcf.gz.tbi',
+              '$out/$igv_out/${variant}_${vardict_out}_igv.html',
+              '$log/$igv_out/${variant}_${vardict_out}_igv.log'],
+    source = [vardict_bgz,
+              '$reference',
+              mq_filtered_bam],
+    action = ('tabix -f ${SOURCES[0]}; '
+              'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
+              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
+)
+
