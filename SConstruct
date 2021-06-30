@@ -293,7 +293,7 @@ pileup = env.Command(
     source = ['$reference',
               mq_filtered_bam],
     action = ('$samtools mpileup -m $min_read_depth -F $allele_fraction -u -f ${SOURCES[0]} '
-              '-d $max_read_depth -A -B ${SOURCES[1]} -vo $TARGET 2> logs/called/test_pileup.log')
+              '-d $max_read_depth -A -B ${SOURCES[1]} -vo $TARGET 2> $log/$called_out/${variant}_pileup.log')
 )
 
 bcftools_gvcf = env.Command(
