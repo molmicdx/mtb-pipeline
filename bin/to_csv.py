@@ -1,6 +1,6 @@
 import argparse
 
-parser = argparse.ArgumentParser(description='Convert variants.py mutation list (txt) or any vcf, to csv for checker.py')
+parser = argparse.ArgumentParser(description='Convert variants.py mutation list (txt or vcf), to csv for checker.py')
 
 parser.add_argument('file', help='txt or vcf input file')
 parser.add_argument('sample', help='sample name')
@@ -9,7 +9,7 @@ parser.add_argument('-v', '--vcf', action='store_true', help='input is vcf')
 args = parser.parse_args()
 
 csvfile = args.file + '.csv'
-csv_header = 'CHROM,POS,REF,ALT,' + args.sample + '\n'
+csv_header = 'CHROM,POS,REF,ALT,TYPE,' + args.sample + '\n'
 
 with open(args.file, 'r') as mutation_list:
     mutations = mutation_list.readlines()
@@ -35,6 +35,6 @@ with open(args.file, 'r') as mutation_list:
                 if len(row) > 1:
                     csv_row_fields = row.rstrip().split('\t')
                     new_csv_row = csv_row_fields[:2] + csv_row_fields[3:5]
-                    csv_row = ','.join(new_csv_row) + ',1\n'
+                    csv_row = ','.join(new_csv_row) + ',' + csv_row_fields[7].split('=')[1] + ',1\n'
                     outcsv.write(csv_row)
 
