@@ -127,7 +127,8 @@ simulated_variants_table, simulated_variants_fa = env.Command(
     target = ['$out/$variants_out/${variant}.txt', 
               '$out/$variants_out/${variant}.fa'],
     source = '$reference',
-    action = ('python bin/variants.py --settings $variants_config $SOURCE $TARGETS')
+    action = ('python bin/variants.py --settings $variants_config $SOURCE $TARGETS; '
+              'cat $variants_config > $out/$variants_out/${variant}_variants_settings.conf')
 )
 
 # ############# Normalize Variant VCF ###############
