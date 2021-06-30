@@ -127,8 +127,8 @@ simulated_variants_table, simulated_variants_fa = env.Command(
     target = ['$out/$variants_out/${variant}.txt', 
               '$out/$variants_out/${variant}.fa'],
     source = '$reference',
-    action = ('python bin/variants.py --settings $variants_config $SOURCE $TARGETS; '
-              'cat $variants_config > $out/$variants_out/${variant}_variants_settings.conf')
+    action = ('python bin/variants.py --settings $variants_config $SOURCE $TARGETS > $log/$variants_out/${variant}.log 2>&1; ' 
+              'cat $variants_config > $log/$variants_out/${variant}_variants_settings.conf')
 )
 
 # ############# Normalize Variant VCF ###############
@@ -285,7 +285,7 @@ gatk_tbi, gatk_igv, gatk_igv_log = env.Command(
               '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
 )
 
-'''
+
 # ##################### bcftools #######################
 
 pileup = env.Command(
@@ -553,7 +553,7 @@ lancet_tbi, lancet_igv, lancet_igv_log = env.Command(
               'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
               '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
 )
-'''
+
 
 # ################## DiscoSnp ###################
 
@@ -645,7 +645,7 @@ discosnp_tbi, discosnp_igv, discosnp_igv_log = env.Command(
               '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
 )
 
-'''
+
 # ################### VarDict ####################
 
 bedfile = env.Command(
@@ -691,4 +691,4 @@ vardict_tbi, vardict_igv, vardict_igv_log = env.Command(
               'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
               '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
 )
-'''
+
