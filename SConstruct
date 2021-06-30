@@ -235,7 +235,8 @@ gatk_gvcf, gatk_log = env.Command(
     target = ['$out/$called_out/$gvcf_out/${variant}_${gatk_out}.g.vcf',
               '$log/$called_out/${variant}_${gatk_out}_haplotypecaller.log'],
     source = ['$reference',
-              mq_filtered_bam],
+              mq_filtered_bam,
+              indexed_bam],
     action = ('$gatk HaplotypeCaller -ploidy $ploidy -R ${SOURCES[0]} -I ${SOURCES[1]} '
               '-O ${TARGETS[0]} -ERC GVCF > ${TARGETS[-1]} 2>&1')
 )
@@ -284,7 +285,7 @@ gatk_tbi, gatk_igv, gatk_igv_log = env.Command(
               '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
 )
 
-
+'''
 # ##################### bcftools #######################
 
 pileup = env.Command(
@@ -552,13 +553,13 @@ lancet_tbi, lancet_igv, lancet_igv_log = env.Command(
               'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
               '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
 )
-
+'''
 
 # ################## DiscoSnp ###################
 
 ref_fof = env.Command(
     target = '$out/$called_out/$discosnp_out/${ref_name}_fof.txt',
-    source = None,
+    source = [R1trimmed, R2trimmed],
     action = ('echo ${cwd}/${out}/${reads_out}/${ref_name}.R1.trimmed.fq.gz > $TARGET; '
               'echo ${cwd}/${out}/${reads_out}/${ref_name}.R2.trimmed.fq.gz >> $TARGET')
 )
@@ -644,7 +645,7 @@ discosnp_tbi, discosnp_igv, discosnp_igv_log = env.Command(
               '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
 )
 
-
+'''
 # ################### VarDict ####################
 
 bedfile = env.Command(
@@ -690,4 +691,4 @@ vardict_tbi, vardict_igv, vardict_igv_log = env.Command(
               'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
               '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
 )
-
+'''
