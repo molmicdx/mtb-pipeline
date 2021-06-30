@@ -75,7 +75,7 @@ def main():
             snp = choice(ALPHABET.replace(old, ''))
             newseq[relpos] = snp
 
-            mutations.append([name, abspos + 1, '.', old, snp])
+            mutations.append([name, abspos + 1, '.', old, snp, 'SNP'])
             snps += 1
         else:
             indel_len = randint(settings.getint('variants', 'indelmin'),
@@ -104,14 +104,14 @@ def main():
 
                 newseq[relpos+1:relpos+1] = insertion
 
-                mutations.append([name, abspos + 1, '.', char_at, char_at + ''.join(insertion)])
+                mutations.append([name, abspos + 1, '.', char_at, char_at + ''.join(insertion), 'INS'])
                 relpos += indel_len
                 indels.append(('insertion', len(insertion)))
             else:
                 char_at = newseq[relpos]
                 removed = newseq[relpos+1:relpos + 1 + indel_len]
                 newseq[relpos+1:relpos + 1 + indel_len] = []
-                mutations.append([name, abspos + 1, '.', char_at + ''.join(removed), char_at])
+                mutations.append([name, abspos + 1, '.', char_at + ''.join(removed), char_at, 'DEL'])
                 abspos += indel_len
                 indels.append(('deletion', len(removed)))
 
@@ -119,7 +119,7 @@ def main():
     args.output.write(''.join(newseq))
 
     writer = csv.writer(args.mutations, delimiter='\t')
-    writer.writerow(['#CHROM', 'POS', 'ID', 'REF', 'ALT'])
+    writer.writerow(['#CHROM', 'POS', 'ID', 'REF', 'ALT', 'TYPE'])
     writer.writerows(mutations)
 
     print('tempate length:', len(reference.seq))
