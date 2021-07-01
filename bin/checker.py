@@ -44,6 +44,8 @@ def get_variant_from_vcf_record(record):
 def is_match(vcf_record, true_variant):
     chrom = vcf_record.CHROM == true_variant['CHROM']
     pos = vcf_record.POS == int(true_variant['POS'])
+    ref = vcf_record.REF == true_variant['REF']
+    alt = vcf_record.ALT == true_variant['ALT']
     #type = ','.join(vcf_record.INFO['TY']) == true_variant['TYPE']
     genotypes = True
     for call in vcf_record.calls:
@@ -53,7 +55,7 @@ def is_match(vcf_record, true_variant):
         except IndexError:
             if call.data['GT'][0] and call.data['GT'][0] != true_variant[call.sample]:
                 genotypes = False
-    return chrom and pos and genotypes
+    return chrom and pos and ref and alt and genotypes
 
 
 def check(vcf_reader, true_variants_reader):
