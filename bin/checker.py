@@ -25,7 +25,19 @@ def get_variant_from_vcf_record(record):
     variant['ALT'] = ','.join([alt.value for alt in record.ALT])
     for call in record.calls:
         variant[call.sample] = call.data['GT']
-    #variant['TYPE'] = ','.join(record.INFO['TY'])
+    #mutation_types = ['TYPE', 'Ty'] 
+    #for mut in mutation_types:
+    #    if mut in record.INFO.keys():
+    #        variant['TYPE'] = ','.join(record.INFO[mut])
+    if variant['REF'].startswith('<') or variant['ALT'].startswith('<'):
+        variant['TYPE'] = variant['ALT'][1:-1] # delly reports type in ALT col
+    else:
+        if len(variant['REF']) == 1 and len(variant['ALT']) == 1:
+            variant['TYPE'] = 'SNP'
+        elif len(variant['REF']) > len(variant['ALT']):
+            variant['TYPE'] = 'DEL'
+        elif len(variant['REF']) < len(variant['ALT']):
+            variant['TYPE'] = 'INS'
     return variant
 
 
