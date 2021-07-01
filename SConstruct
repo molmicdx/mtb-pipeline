@@ -233,7 +233,7 @@ indexed_bam = env.Command(
 
 gatk_gvcf, gatk_log = env.Command(
     target = ['$out/$called_out/$gvcf_out/${variant}_${gatk_out}.g.vcf',
-              '$log/$called_out/${variant}_${gatk_out}_haplotypecaller.log'],
+              '$log/$called_out/$gvcf/${variant}_${gatk_out}_haplotypecaller.log'],
     source = ['$reference',
               mq_filtered_bam,
               indexed_bam],
@@ -243,7 +243,7 @@ gatk_gvcf, gatk_log = env.Command(
 
 gatk_gt, gatk_gt_log = env.Command(
     target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}.vcf',
-              '$log/$called_out/${variant}_${gatk_out}_genotypegvcfs.log'],
+              '$log/$called_out/$gatk_out/${variant}_${gatk_out}_genotypegvcfs.log'],
     source = ['$reference',
               gatk_gvcf],
     action = ('$gatk GenotypeGVCFs -R ${SOURCES[0]} -V ${SOURCES[1]} '
@@ -261,7 +261,7 @@ gatk_g_normalized, gatk_g_norm_log = env.Command(
 
 gatk_normalized, gatk_norm_log = env.Command(
     target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized.vcf',
-              '$log/$called_out/${variant}_${gatk_out}_normalized.log'],
+              '$log/$called_out/$gatk_out/${variant}_${gatk_out}_normalized.log'],
     source = ['$reference',
               gatk_gt],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
@@ -269,15 +269,15 @@ gatk_normalized, gatk_norm_log = env.Command(
 )
 
 gatk_bgz = env.Command(
-    target = '$out/$bgz_out/${variant}_${gatk_out}_normalized.vcf.gz',
+    target = '$out/$bgz_out/$gatk_out/${variant}_${gatk_out}_normalized.vcf.gz',
     source = gatk_normalized,
     action = 'bgzip < $SOURCE > $TARGET'
 )
 
 gatk_tbi, gatk_igv, gatk_igv_log = env.Command(
-    target = ['$out/$bgz_out/${variant}_${gatk_out}_normalized.vcf.gz.tbi',
-              '$out/$igv_out/${variant}_${gatk_out}_igv.html',
-              '$log/$igv_out/${variant}_${gatk_out}_igv.log'],
+    target = ['$out/$bgz_out/$gatk_out/${variant}_${gatk_out}_normalized.vcf.gz.tbi',
+              '$out/$igv_out/$gatk_out/${variant}_${gatk_out}_igv.html',
+              '$log/$igv_out/$gatk_out/${variant}_${gatk_out}_igv.log'],
     source = [gatk_bgz,
               '$reference',
               mq_filtered_bam],
@@ -318,8 +318,8 @@ bcftools_g_normalized, bcftools_g_norm_log = env.Command(
 )
 
 bcftools_normalized, bcftools_norm_log = env.Command(
-    target = ['$out/$called_out/${variant}_${bcftools_out}_normalized.vcf',
-              '$log/$called_out/${variant}_${bcftools_out}_normalized.log'],
+    target = ['$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized.vcf',
+              '$log/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized.log'],
     source = ['$reference',
               bcftools_vcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
@@ -327,15 +327,15 @@ bcftools_normalized, bcftools_norm_log = env.Command(
 )
 
 bcftools_bgz = env.Command(
-    target = '$out/$bgz_out/${variant}_${bcftools_out}_normalized.vcf.gz',
+    target = '$out/$bgz_out/$bcftools_out/${variant}_${bcftools_out}_normalized.vcf.gz',
     source = bcftools_normalized,
     action = 'bgzip < $SOURCE > $TARGET'
 )
 
 bcftools_tbi, bcftools_igv, bcftools_igv_log = env.Command(
-    target = ['$out/$bgz_out/${variant}_${bcftools_out}_normalized.vcf.gz.tbi',
-              '$out/$igv_out/${variant}_${bcftools_out}_igv.html',
-              '$log/$igv_out/${variant}_${bcftools_out}_igv.log'],
+    target = ['$out/$bgz_out/$bcftools_out/${variant}_${bcftools_out}_normalized.vcf.gz.tbi',
+              '$out/$igv_out/$bcftools_out/${variant}_${bcftools_out}_igv.html',
+              '$log/$igv_out/$bcftools_out/${variant}_${bcftools_out}_igv.log'],
     source = [bcftools_bgz,
               '$reference',
               mq_filtered_bam],
@@ -373,8 +373,8 @@ freebayes_g_normalized, freebayes_g_norm_log = env.Command(
 )
 
 freebayes_normalized, freebayes_norm_log = env.Command(
-    target = ['$out/$called_out/${variant}_${freebayes_out}_normalized.vcf',
-              '$log/$called_out/${variant}_${freebayes_out}_normalized.log'],
+    target = ['$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized.vcf',
+              '$log/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized.log'],
     source = ['$reference',
               freebayes_vcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
@@ -382,15 +382,15 @@ freebayes_normalized, freebayes_norm_log = env.Command(
 )
 
 freebayes_bgz = env.Command(
-    target = '$out/$bgz_out/${variant}_${freebayes_out}_normalized.vcf.gz',
+    target = '$out/$bgz_out/$freebayes_out/${variant}_${freebayes_out}_normalized.vcf.gz',
     source = freebayes_normalized,
     action = 'bgzip < $SOURCE > $TARGET'
 )
 
 freebayes_tbi, freebayes_igv, freebayes_igv_log = env.Command(
-    target = ['$out/$bgz_out/${variant}_${freebayes_out}_normalized.vcf.gz.tbi',
-              '$out/$igv_out/${variant}_${freebayes_out}_igv.html',
-              '$log/$igv_out/${variant}_${freebayes_out}_igv.log'],
+    target = ['$out/$bgz_out/$freebayes_out/${variant}_${freebayes_out}_normalized.vcf.gz.tbi',
+              '$out/$igv_out/$freebayes_out/${variant}_${freebayes_out}_igv.html',
+              '$log/$igv_out/$freebayes_out/${variant}_${freebayes_out}_igv.log'],
     source = [freebayes_bgz,
               '$reference',
               mq_filtered_bam],
@@ -404,13 +404,13 @@ freebayes_tbi, freebayes_igv, freebayes_igv_log = env.Command(
 
 deepvariant_gvcf, deepvariant_vcf, deepvariant_log = env.Command(
     target = ['$out/$called_out/$gvcf_out/${variant}_${deepvariant_out}.g.vcf',
-              '$out/$called_out/${variant}_${deepvariant_out}.vcf',
-              '$log/$called_out/${variant}_${deepvariant_out}.log'],
+              '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}.vcf',
+              '$log/$called_out/$deepvariant_out/${variant}_${deepvariant_out}.log'],
     source = ['$reference',
               mq_filtered_bam],
     action = ('$deepvariant --model_type=WGS --ref=/input/${SOURCES[0]} --reads=/input/${SOURCES[1]} '
               '--output_gvcf=/output/${TARGETS[0]} --output_vcf=/output/${TARGETS[1]} --num_shards=$max_threads '
-              '--logging_dir=/output/$out/$called_out/${deepvariant_out}/ > ${TARGETS[-1]} 2>&1')
+              '--logging_dir=/output/$log/$called_out/${deepvariant_out}/ > ${TARGETS[-1]} 2>&1')
 )
 
 deepvariant_g_normalized, deepvariant_g_norm_log = env.Command(
@@ -423,8 +423,8 @@ deepvariant_g_normalized, deepvariant_g_norm_log = env.Command(
 )
 
 deepvariant_normalized, deepvariant_norm_log = env.Command(
-    target = ['$out/$called_out/${variant}_${deepvariant_out}_normalized.vcf',
-              '$log/$called_out/${variant}_${deepvariant_out}_normalized.log'],
+    target = ['$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized.vcf',
+              '$log/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized.log'],
     source = ['$reference',
               deepvariant_vcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
@@ -432,21 +432,21 @@ deepvariant_normalized, deepvariant_norm_log = env.Command(
 )
 
 deepvariant_pass = env.Command(
-    target = '$out/$called_out/${variant}_${deepvariant_out}_normalized_PASS.vcf',
+    target = '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_PASS.vcf',
     source = deepvariant_normalized,
     action = 'grep "#" $SOURCE > $TARGET; grep "$$(printf \'\\t\')PASS$$(printf \'\\t\')" $SOURCE >> $TARGET'
 )
 
 deepvariant_bgz = env.Command(
-    target = '$out/$bgz_out/${variant}_${deepvariant_out}_normalized_PASS.vcf.gz',
+    target = '$out/$bgz_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_PASS.vcf.gz',
     source = deepvariant_pass,
     action = 'bgzip < $SOURCE > $TARGET'
 )
 
 deepvariant_tbi, deepvariant_igv, deepvariant_igv_log = env.Command(
-    target = ['$out/$bgz_out/${variant}_${deepvariant_out}_normalized_PASS.vcf.gz.tbi',
-              '$out/$igv_out/${variant}_${deepvariant_out}_igv.html',
-              '$log/$igv_out/${variant}_${deepvariant_out}_igv.log'],
+    target = ['$out/$bgz_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_PASS.vcf.gz.tbi',
+              '$out/$igv_out/$deepvariant_out/${variant}_${deepvariant_out}_igv.html',
+              '$log/$igv_out/$deepvariant_out/${variant}_${deepvariant_out}_igv.log'],
     source = [deepvariant_bgz,
               '$reference',
               mq_filtered_bam],
@@ -459,22 +459,22 @@ deepvariant_tbi, deepvariant_igv, deepvariant_igv_log = env.Command(
 # ################### delly #####################
 
 delly_bcf, delly_log  = env.Command(
-    target = ['$out/$called_out/${variant}_${delly_out}.bcf',
-              '$log/$called_out/${variant}_${delly_out}.log'],
+    target = ['$out/$called_out/$delly_out/${variant}_${delly_out}.bcf',
+              '$log/$called_out/$delly_out/${variant}_${delly_out}.log'],
     source = ['$reference',
               mq_filtered_bam],
     action = '$delly call -g ${SOURCES[0]} -o ${TARGETS[0]} ${SOURCES[1]} > ${TARGETS[-1]} 2>&1'
 )
 
 delly_vcf = env.Command(
-    target = '$out/$called_out/${variant}_${delly_out}.vcf',
+    target = '$out/$called_out/$delly_out/${variant}_${delly_out}.vcf',
     source = delly_bcf,
     action = '$bcftools view $SOURCE -O v -o $TARGET'
 )
 
 delly_normalized, delly_norm_log = env.Command(
-    target = ['$out/$called_out/${variant}_${delly_out}_normalized.vcf',
-              '$log/$called_out/${variant}_${delly_out}_normalized.log'],
+    target = ['$out/$called_out/$delly_out/${variant}_${delly_out}_normalized.vcf',
+              '$log/$called_out/$delly_out/${variant}_${delly_out}_normalized.log'],
     source = ['$reference',
               delly_vcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
@@ -482,15 +482,15 @@ delly_normalized, delly_norm_log = env.Command(
 )
 
 delly_bgz = env.Command(
-    target = '$out/$bgz_out/${variant}_${delly_out}_normalized.vcf.gz',
+    target = '$out/$bgz_out/$delly_out/${variant}_${delly_out}_normalized.vcf.gz',
     source = delly_normalized,
     action = 'bgzip < $SOURCE > $TARGET'
 )
 
 delly_tbi, delly_igv, delly_igv_log = env.Command(
-    target = ['$out/$bgz_out/${variant}_${delly_out}_normalized.vcf.gz.tbi',
-              '$out/$igv_out/${variant}_${delly_out}_igv.html',
-              '$log/$igv_out/${variant}_${delly_out}_igv.log'],
+    target = ['$out/$bgz_out/$delly_out/${variant}_${delly_out}_normalized.vcf.gz.tbi',
+              '$out/$igv_out/$delly_out/${variant}_${delly_out}_igv.html',
+              '$log/$igv_out/$delly_out/${variant}_${delly_out}_igv.log'],
     source = [delly_bgz,
               '$reference',
               mq_filtered_bam],
@@ -503,8 +503,8 @@ delly_tbi, delly_igv, delly_igv_log = env.Command(
 # ################### Lancet ####################
 
 lancet_vcf, lancet_log = env.Command(
-    target = ['$out/$called_out/${variant}_${ref_name}_${lancet_out}.vcf',
-              '$log/$called_out/${variant}_${ref_name}_${lancet_out}.log'],
+    target = ['$out/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}.vcf',
+              '$log/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}.log'],
     source = ['$reference',
               mq_filtered_bam,
               '$out/$deduped_out/${ref_name}_deduped_mq10.bam'],
@@ -514,14 +514,14 @@ lancet_vcf, lancet_log = env.Command(
 )
 
 lancet_config = env.Command(
-    target = '$log/$called_out/${variant}_${ref_name}_${lancet_out}_config.txt',
+    target = '$log/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}_config.txt',
     source = None,
     action = 'mv ${cwd}/config.txt $TARGET'
 )
 
 lancet_normalized, lancet_norm_log = env.Command(
-    target = ['$out/$called_out/${variant}_${ref_name}_${lancet_out}_normalized.vcf',
-              '$log/$called_out/${variant}_${ref_name}_${lancet_out}_normalized.log'],
+    target = ['$out/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}_normalized.vcf',
+              '$log/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}_normalized.log'],
     source = ['$reference',
               lancet_vcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
@@ -529,7 +529,7 @@ lancet_normalized, lancet_norm_log = env.Command(
 )
 
 lancet_final_vcf = env.Command(
-    target = '$out/$called_out/${variant}_${lancet_out}_normalized.vcf',
+    target = '$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized.vcf',
     source = lancet_normalized,
     action = ('for sample in $$(zgrep -m 1 "^#CHROM" $SOURCE | cut -f10-); do '
               '    $bcftools view -c 1 -Ov -s $$sample -o $out/$called_out/$$sample\'_${lancet_out}_normalized.vcf\' $SOURCE; done; '
@@ -537,15 +537,15 @@ lancet_final_vcf = env.Command(
 )
 
 lancet_bgz = env.Command(
-    target = '$out/$bgz_out/${variant}_${lancet_out}_normalized.vcf.gz',
+    target = '$out/$bgz_out/$lancet_out/${variant}_${lancet_out}_normalized.vcf.gz',
     source = lancet_final_vcf,
     action = 'bgzip < $SOURCE > $TARGET'
 )
 
 lancet_tbi, lancet_igv, lancet_igv_log = env.Command(
-    target = ['$out/$bgz_out/${variant}_${lancet_out}_normalized.vcf.gz.tbi',
-              '$out/$igv_out/${variant}_${lancet_out}_igv.html',
-              '$log/$igv_out/${variant}_${lancet_out}_igv.log'],
+    target = ['$out/$bgz_out/$lancet_out/${variant}_${lancet_out}_normalized.vcf.gz.tbi',
+              '$out/$igv_out/$lancet_out/${variant}_${lancet_out}_igv.html',
+              '$log/$igv_out/$lancet_out/${variant}_${lancet_out}_igv.log'],
     source = [lancet_bgz,
               '$reference',
               mq_filtered_bam],
@@ -628,15 +628,15 @@ discosnp_pass_sorted, discosnp_ps_log = env.Command(
 )
 
 discosnp_bgz = env.Command(
-    target = '$out/$bgz_out/${variant}_discosnp-edit_normalized_PASSsorted.vcf.gz',
+    target = '$out/$bgz_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted.vcf.gz',
     source = discosnp_pass_sorted,
     action = 'bgzip < $SOURCE > $TARGET'
 )
 
 discosnp_tbi, discosnp_igv, discosnp_igv_log = env.Command(
-    target = ['$out/$bgz_out/${variant}_discosnp-edit_normalized_PASSsorted.vcf.gz.tbi',
-              '$out/$igv_out/${variant}_${discosnp_out}_igv.html',
-              '$log/$igv_out/${variant}_${discosnp_out}_igv.log'],
+    target = ['$out/$bgz_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted.vcf.gz.tbi',
+              '$out/$igv_out/$discosnp_out/${variant}_${discosnp_out}_igv.html',
+              '$log/$igv_out/$discosnp_out/${variant}_${discosnp_out}_igv.log'],
     source = [discosnp_bgz,
               '$reference',
               mq_filtered_bam],
@@ -655,7 +655,7 @@ bedfile = env.Command(
 )
 
 vardict_vcf = env.Command(
-    target = '$out/$called_out/${variant}_vardict.vcf',
+    target = '$out/$called_out/$vardict_out/${variant}_vardict.vcf',
     source = ['$reference',
               mq_filtered_bam,
               bedfile],
@@ -666,8 +666,8 @@ vardict_vcf = env.Command(
 )
 
 vardict_normalized, vardict_norm_log = env.Command(
-    target = ['$out/$called_out/${variant}_${vardict_out}_normalized.vcf',
-              '$log/$called_out/${variant}_${vardict_out}_normalized.log'],
+    target = ['$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized.vcf',
+              '$log/$called_out/$vardict_out/${variant}_${vardict_out}_normalized.log'],
     source = ['$reference',
               vardict_vcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
@@ -675,15 +675,15 @@ vardict_normalized, vardict_norm_log = env.Command(
 )
 
 vardict_bgz = env.Command(
-    target = '$out/$bgz_out/${variant}_${vardict_out}_normalized.vcf.gz',
+    target = '$out/$bgz_out/$vardict_out/${variant}_${vardict_out}_normalized.vcf.gz',
     source = vardict_normalized,
     action = 'bgzip < $SOURCE > $TARGET'
 )
 
 vardict_tbi, vardict_igv, vardict_igv_log = env.Command(
-    target = ['$out/$bgz_out/${variant}_${vardict_out}_normalized.vcf.gz.tbi',
-              '$out/$igv_out/${variant}_${vardict_out}_igv.html',
-              '$log/$igv_out/${variant}_${vardict_out}_igv.log'],
+    target = ['$out/$bgz_out/$vardict_out/${variant}_${vardict_out}_normalized.vcf.gz.tbi',
+              '$out/$igv_out/$vardict_out/${variant}_${vardict_out}_igv.html',
+              '$log/$igv_out/$vardict_out/${variant}_${vardict_out}_igv.log'],
     source = [vardict_bgz,
               '$reference',
               mq_filtered_bam],
