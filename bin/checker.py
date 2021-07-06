@@ -45,7 +45,7 @@ def is_match(vcf_record, true_variant):
     chrom = vcf_record.CHROM == true_variant['CHROM']
     pos = vcf_record.POS == int(true_variant['POS'])
     ref = vcf_record.REF == true_variant['REF']
-    alt = vcf_record.ALT == true_variant['ALT']
+    alt = vcf_record.ALT[0].value == true_variant['ALT']
     #type = ','.join(vcf_record.INFO['TY']) == true_variant['TYPE']
     genotypes = True
     for call in vcf_record.calls:
