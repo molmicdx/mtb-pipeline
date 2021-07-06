@@ -89,27 +89,36 @@ def stats(tps, fps, fns):
     snp = [0,0,0]
     ins = [0,0,0]
     dele = [0,0,0]
-    for variant in tps:
-        if variant['TYPE'] == 'SNP':
-            snp[0] += 1
-        elif variant['TYPE'] == 'INS':
-            ins[0] += 1
-        elif variant['TYPE'] == 'DEL':
-            dele[0] += 1
-    for variant in fps:
-        if variant['TYPE'] == 'SNP':
-            snp[1] += 1
-        elif variant['TYPE'] == 'INS':
-            ins[1] += 1
-        elif variant['TYPE'] == 'DEL':
-            dele[1] += 1
-    for variant in fns:
-        if variant['TYPE'] == 'SNP':
-            snp[2] += 1
-        elif variant['TYPE'] == 'INS':
-            snp[2] += 1
-        elif variant['TYPE'] == 'DEL':
-            snp[2] += 1
+    try:
+        for variant in tps:
+            if variant['TYPE'] == 'SNP':
+                snp[0] += 1
+            elif variant['TYPE'] == 'INS':
+                ins[0] += 1
+            elif variant['TYPE'] == 'DEL':
+                dele[0] += 1
+    except KeyError:
+        pass
+    try:
+        for variant in fps:
+            if variant['TYPE'] == 'SNP':
+                snp[1] += 1
+            elif variant['TYPE'] == 'INS':
+                ins[1] += 1
+            elif variant['TYPE'] == 'DEL':
+                dele[1] += 1
+    except KeyError:
+        pass
+    try:
+        for variant in fns:
+            if variant['TYPE'] == 'SNP':
+                snp[2] += 1
+            elif variant['TYPE'] == 'INS':
+                snp[2] += 1
+            elif variant['TYPE'] == 'DEL':
+                snp[2] += 1
+    except KeyError:
+        pass
     try:
         precision = str(len(tps)/(len(tps) + len(fps)))
     except ZeroDivisionError:
