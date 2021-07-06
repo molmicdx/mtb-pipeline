@@ -210,17 +210,14 @@ deduped, deduped_metrics, deduped_log = env.Command(
 
 # ################### Filter Reads ####################
 
-mq_filtered_bam = env.Command(
-    target = '$out/$deduped_out/${variant}_deduped_mq.bam',
+mq_filtered_bam, indexed_bam = env.Command(
+    target = ['$out/$deduped_out/${variant}_deduped_mq.bam',
+              '$out/$deduped_out/${variant}_deduped_mq.bam.bai'],
     source = deduped,
-    action = '$samtools view $SOURCE -q $mapq -bo $TARGET'
+    action = ('$samtools view $SOURCE -q $mapq -bo ${TARGETS[0]}; '
+              '$samtools index ${TARGETS[0]}')
 )
 
-indexed_bam = env.Command(
-    target = '$out/$deduped_out/${variant}_deduped_mq.bam.bai',
-    source = mq_filtered_bam,
-    action = '$samtools index $SOURCE'
-)
 
 # ################## Validate BAM #####################
 
