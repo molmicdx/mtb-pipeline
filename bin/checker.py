@@ -25,13 +25,27 @@ def get_variant_from_vcf_record(record):
     variant['ALT'] = ','.join([alt.value for alt in record.ALT])
     for call in record.calls:
         variant[call.sample] = call.data['GT']
-    #variant['TYPE'] = ','.join(record.INFO['TY'])
+    #mutation_types = ['TYPE', 'Ty'] 
+    #for mut in mutation_types:
+    #    if mut in record.INFO.keys():
+    #        variant['TYPE'] = ','.join(record.INFO[mut])
+    if variant['REF'].startswith('<') or variant['ALT'].startswith('<'):
+        variant['TYPE'] = variant['ALT'][1:-1] # delly reports type in ALT col
+    else:
+        if len(variant['REF']) == 1 and len(variant['ALT']) == 1:
+            variant['TYPE'] = 'SNP'
+        elif len(variant['REF']) > len(variant['ALT']):
+            variant['TYPE'] = 'DEL'
+        elif len(variant['REF']) < len(variant['ALT']):
+            variant['TYPE'] = 'INS'
     return variant
 
 
 def is_match(vcf_record, true_variant):
     chrom = vcf_record.CHROM == true_variant['CHROM']
     pos = vcf_record.POS == int(true_variant['POS'])
+    ref = vcf_record.REF == true_variant['REF']
+    alt = vcf_record.ALT == true_variant['ALT']
     #type = ','.join(vcf_record.INFO['TY']) == true_variant['TYPE']
     genotypes = True
     for call in vcf_record.calls:
@@ -41,7 +55,7 @@ def is_match(vcf_record, true_variant):
         except IndexError:
             if call.data['GT'][0] and call.data['GT'][0] != true_variant[call.sample]:
                 genotypes = False
-    return chrom and pos and genotypes
+    return chrom and pos and ref and alt and genotypes
 
 
 def check(vcf_reader, true_variants_reader):
@@ -71,7 +85,31 @@ def stats(tps, fps, fns):
     tp = str(len(tps))
     fp = str(len(fps))
     fn = str(len(fns))
-
+    
+    snp = [0,0,0]
+    ins = [0,0,0]
+    dele = [0,0,0]
+    for variant in tps:
+        if variant['TYPE'] == 'SNP':
+            snp[0] += 1
+        elif variant['TYPE'] == 'INS':
+            ins[0] += 1
+        elif variant['TYPE'] == 'DEL':
+            dele[0] += 1
+    for variant in fps:
+        if variant['TYPE'] == 'SNP':
+            snp[1] += 1
+        elif variant['TYPE'] == 'INS':
+            ins[1] += 1
+        elif variant['TYPE'] == 'DEL':
+            dele[1] += 1
+    for variant in fns:
+        if variant['TYPE'] == 'SNP':
+            snp[2] += 1
+        elif variant['TYPE'] == 'INS':
+            snp[2] += 1
+        elif variant['TYPE'] == 'DEL':
+            snp[2] += 1
     try:
         precision = str(len(tps)/(len(tps) + len(fps)))
     except ZeroDivisionError:
@@ -81,7 +119,7 @@ def stats(tps, fps, fns):
     except ZeroDivisionError:
         recall = '.'
 
-    return tp, fp, fn, precision, recall
+    return tp, fp, fn, snp, ins, dele, precision, recall
 
 def write_variants(variants, fieldnames, file):
     writer = csv.DictWriter(file, fieldnames=fieldnames)
@@ -100,11 +138,16 @@ def main():
         fieldnames = {col: ',' for col in header.split(',')}.keys()
     write_variants(fps, fieldnames, args.false_positives)
     write_variants(fns, fieldnames, args.false_negatives)
-    tp, fp, fn, precision, recall = stats(tps, fps, fns)
+    tp, fp, fn, snp, ins, dele, precision, recall = stats(tps, fps, fns)
     output_dir = '/'.join(args.false_positives.name.split('/')[:-1])
     samplename = args.merged_vcf.name.split('/')[-1].split('.')[0]
     with open(output_dir + '/' + samplename + '_stats.csv', 'w') as vcfile:
-        vcfile.write(samplename + ',' + tp + ',' + fp + ',' + fn + ',' + precision + ',' + recall + '\n')
+        vcfile.write('SAMPLE,TP,TP_SNP,TP_IND,FP,FP_SNP,FP_IND,FN,FN_SNP,FN_IND,PRECISION,RECALL\n')
+        vcfile.write(samplename + ',' \
+                     + tp + ',' + str(snp[0]) + ',' + str(ins[0] + dele[0]) + ',' \
+                     + fp + ',' + str(snp[1]) + ',' + str(ins[1] + dele[1]) + ',' \
+                     + fn + ',' + str(snp[2]) + ',' + str(ins[2] + dele[2]) + ',' \
+                     + precision + ',' + recall + '\n')
 
 if __name__ == '__main__':
     sys.exit(main())
