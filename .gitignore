@@ -6,3 +6,6 @@ notebooks/*.csv
 notebooks/*.png
 notebooks/.ipynb_checkpoints
 *.DS_Store
+__pycache__/
+.sconsign.dblite
+issue*/
