@@ -860,4 +860,17 @@ vardict_fpos, vardict_fneg, vardict_stats = env.Command(
     action = 'python $check_call ${SOURCES[0]} ${SOURCES[1]} ${TARGETS[0]} ${TARGETS[1]} ${TARGETS[2]}'
 )
 
-
+summary_csv = env.Command(
+    target = '$out/$checked_out/${variant}_alltools_normalized_dp${min_read_depth}_stats.csv',
+    source = [gatk_stats,
+              bcftools_stats,
+              freebayes_stats,
+              deepvariant_stats,
+              discosnp_stats,
+              lancet_stats,
+              #delly_stats,
+              vardict_stats],
+    action = ('echo \'SAMPLE,TP,TP_SNP,TP_IND,FP,FP_SNP,FP_IND,FN,FN_SNP,FN_IND,PRECISION,RECALL\\n\' > $TARGET; '
+              'cat $SOURCES | sed \'/SAMPLE,TP,TP_SNP,TP_IND,FP,FP_SNP,FP_IND,FN,FN_SNP,FN_IND,PRECISION,RECALL/d\' '
+              '>> $TARGET')
+)
