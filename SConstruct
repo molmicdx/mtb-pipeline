@@ -66,7 +66,6 @@ env = Environment(
     to_csv = config.get('variant_simulation', 'to_csv_script'),
     to_bed = config.get('variant_simulation', 'to_bed_script'),
     filter_cov = config.get('variant_simulation', 'filter_by_cov_script'),
-    cov_limit = config.get('variant_simulation', 'variant_cov_limit'),
     read1_q = config.get('variant_simulation', 'r1_qual_profile'),
     read2_q = config.get('variant_simulation', 'r2_qual_profile'),
     read_len = config.get('variant_simulation', 'read_length'),
@@ -94,8 +93,8 @@ env = Environment(
     lancet_out = config.get('variant_calling', 'lancet_output'),
     ploidy = config.get('variant_calling', 'ploidy'),
     allele_fraction = config.get('variant_calling', 'min_allele_fraction'),
-    min_read_depth = config.get('variant_calling', 'min_read_depth'),
-    max_read_depth = config.get('variant_calling', 'max_read_depth'),
+    min_reads = config.get('variant_calling', 'min_reads'),
+    max_reads = config.get('variant_calling', 'max_reads'),
     snp_per_bubble = config.get('discosnp_params', 'snp_per_bubble'),
     disco_mode = config.get('discosnp_params', 'disco_mode'),
     kmer_size = config.get('discosnp_params', 'kmer_size'),
@@ -112,6 +111,7 @@ env = Environment(
     igv_flank = config.get('report', 'igv_flanking_sites'),
     checked_out = config.get('output', 'checked'),
     check_call = config.get('report', 'checker_script'),
+    min_read_depth = config.get('report', 'filter_read_depth'),
     gatk = '{} exec -B $cwd {} gatk'.format(singularity, gatk_img),
     cutadapt = '{} exec -B $cwd {} cutadapt'.format(singularity, cutadapt_img),
     bwa = '{} exec -B $cwd {} bwa mem'.format(singularity, bwa_img),
@@ -295,14 +295,14 @@ pileup = env.Command(
     target = '$out/$called_out/$bcftools_out/${variant}_pileup.vcf',
     source = ['$reference',
               mq_filtered_bam],
-    action = ('$samtools mpileup -m $min_read_depth -F $allele_fraction -u -f ${SOURCES[0]} '
-              '-d $max_read_depth -A -B ${SOURCES[1]} -vo $TARGET 2> $log/$called_out/${variant}_pileup.log')
+    action = ('$samtools mpileup -m $min_reads -F $allele_fraction -u -f ${SOURCES[0]} '
+              '-d $max_reads -A -B ${SOURCES[1]} -vo $TARGET 2> $log/$called_out/${variant}_pileup.log')
 )
 
 bcftools_gvcf = env.Command(
     target = '$out/$called_out/$gvcf_out/${variant}_${bcftools_out}.g.vcf',
     source = pileup,
-    action = '$bcftools call -g $min_read_depth -mO v -o $TARGET $SOURCE' 
+    action = '$bcftools call -g $min_reads -mO v -o $TARGET $SOURCE' 
 )
 
 bcftools_vcf = env.Command(
@@ -310,7 +310,7 @@ bcftools_vcf = env.Command(
     source = pileup,
     action = '$bcftools call -mvO v -o $TARGET $SOURCE'
 )
-
+'''
 bcftools_g_normalized, bcftools_g_norm_log = env.Command(
     target = ['$out/$called_out/$gvcf_out/${variant}_${bcftools_out}_normalized.g.vcf',
               '$log/$called_out/$gvcf_out/${variant}_${bcftools_out}_normalized.g.log'],
@@ -319,7 +319,7 @@ bcftools_g_normalized, bcftools_g_norm_log = env.Command(
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
               '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
 )
-
+'''
 bcftools_normalized, bcftools_norm_log = env.Command(
     target = ['$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized.vcf',
               '$log/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized.log'],
@@ -724,86 +724,140 @@ variant_cov = env.Command(
               'cut -f 1-3,7 > $TARGET')
 )
 
-#filtered_variant_cov = env.Command(
-#    target = '$out/$variants_out/${variant}_normalized.vcf.csv_covfiltered.csv',
-#    source = [variant_cov,
-#              variant_csv],
-#    action = 'python $filter_cov ${SOURCES[0]} ${SOURCES[1]} $cov_limit'
-#)
+filtered_variant_cov = env.Command(
+    target = '$out/$variants_out/${variant}_normalized_dp${min_read_depth}.csv',
+    source = [variant_cov,
+              variant_csv],
+    action = 'python $filter_cov ${SOURCES[0]} ${SOURCES[1]} $min_read_depth'
+)
 
 
 # ################### Check Calls ######################
 
+gatk_cov_filtered = env.Command(
+    target = '$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_dp${min_read_depth}.vcf',
+    source = gatk_normalized,
+    action = '$bcftools filter -i \'DP>=${min_read_depth}\' -o $TARGET $SOURCE'
+)
 gatk_fpos, gatk_fneg, gatk_stats = env.Command(
-    target = ['$out/$checked_out/$gatk_out/${variant}_${gatk_out}_normalized_fPOS.csv',
-              '$out/$checked_out/$gatk_out/${variant}_${gatk_out}_normalized_fNEG.csv',
-              '$out/$checked_out/$gatk_out/${variant}_${gatk_out}_normalized_stats.csv'],
-    source = [gatk_normalized,
-              variant_csv],
-    action = 'python $check_call ${SOURCES[0]} ${SOURCES[1]} ${TARGETS[0]} ${TARGETS[1]}'
+    target = ['$out/$checked_out/$gatk_out/${variant}_${gatk_out}_normalized_dp${min_read_depth}_fPOS.csv',
+              '$out/$checked_out/$gatk_out/${variant}_${gatk_out}_normalized_dp${min_read_depth}_fNEG.csv',
+              '$out/$checked_out/$gatk_out/${variant}_${gatk_out}_normalized_dp${min_read_depth}_stats.csv'],
+    source = [gatk_cov_filtered,
+              filtered_variant_cov],
+    action = 'python $check_call ${SOURCES[0]} ${SOURCES[1]} ${TARGETS[0]} ${TARGETS[1]} ${TARGETS[2]}'
+)
+
+
+bcftools_cov_filtered = env.Command(
+    target = '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_dp${min_read_depth}.vcf',
+    source = bcftools_normalized,
+    action = '$bcftools filter -i \'DP>=${min_read_depth}\' -o $TARGET $SOURCE'
 )
 
 bcftools_fpos, bcftools_fneg, bcftools_stats = env.Command(
-    target = ['$out/$checked_out/$bcftools_out/${variant}_${bcftools_out}_normalized_fPOS.csv',
-              '$out/$checked_out/$bcftools_out/${variant}_${bcftools_out}_normalized_fNEG.csv',
-              '$out/$checked_out/$bcftools_out/${variant}_${bcftools_out}_normalized_stats.csv'],
-    source = [bcftools_normalized,
-              variant_csv],
-    action = 'python $check_call ${SOURCES[0]} ${SOURCES[1]} ${TARGETS[0]} ${TARGETS[1]}'
+    target = ['$out/$checked_out/$bcftools_out/${variant}_${bcftools_out}_normalized_dp${min_read_depth}_fPOS.csv',
+              '$out/$checked_out/$bcftools_out/${variant}_${bcftools_out}_normalized_dp${min_read_depth}_fNEG.csv',
+              '$out/$checked_out/$bcftools_out/${variant}_${bcftools_out}_normalized_dp${min_read_depth}_stats.csv'],
+    source = [bcftools_cov_filtered,
+              filtered_variant_cov],
+    action = 'python $check_call ${SOURCES[0]} ${SOURCES[1]} ${TARGETS[0]} ${TARGETS[1]} ${TARGETS[2]}'
+)
+
+
+freebayes_cov_filtered = env.Command(
+    target = '$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized_dp${min_read_depth}.vcf',
+    source = freebayes_normalized,
+    action = '$bcftools filter -i \'DP>=${min_read_depth}\' -o $TARGET $SOURCE'
 )
 
 freebayes_fpos, freebayes_fneg, freebayes_stats = env.Command(
-    target = ['$out/$checked_out/$freebayes_out/${variant}_${freebayes_out}_normalized_fPOS.csv',
-              '$out/$checked_out/$freebayes_out/${variant}_${freebayes_out}_normalized_fNEG.csv',
-              '$out/$checked_out/$freebayes_out/${variant}_${freebayes_out}_normalized_stats.csv'],
-    source = [freebayes_normalized,
-              variant_csv],
-    action = 'python $check_call ${SOURCES[0]} ${SOURCES[1]} ${TARGETS[0]} ${TARGETS[1]}'
+    target = ['$out/$checked_out/$freebayes_out/${variant}_${freebayes_out}_normalized_dp${min_read_depth}_fPOS.csv',
+              '$out/$checked_out/$freebayes_out/${variant}_${freebayes_out}_normalized_dp${min_read_depth}_fNEG.csv',
+              '$out/$checked_out/$freebayes_out/${variant}_${freebayes_out}_normalized_dp${min_read_depth}_stats.csv'],
+    source = [freebayes_cov_filtered,
+              filtered_variant_cov],
+    action = 'python $check_call ${SOURCES[0]} ${SOURCES[1]} ${TARGETS[0]} ${TARGETS[1]} ${TARGETS[2]}'
+)
+
+
+deepvariant_cov_filtered = env.Command(
+    target = '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_dp${min_read_depth}.vcf',
+    source = deepvariant_pass,
+    action = '$bcftools filter -i \'DP>=${min_read_depth}\' -o $TARGET $SOURCE'
 )
 
 deepvariant_fpos, deepvariant_fneg, deepvariant_stats = env.Command(
-    target = ['$out/$checked_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_PASS_fPOS.csv',
-              '$out/$checked_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_PASS_fNEG.csv',
-              '$out/$checked_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_PASS_stats.csv'],
-    source = [deepvariant_pass,
-              variant_csv],
-    action = 'python $check_call ${SOURCES[0]} ${SOURCES[1]} ${TARGETS[0]} ${TARGETS[1]}'
+    target = ['$out/$checked_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_PASS_dp${min_read_depth}_fPOS.csv',
+              '$out/$checked_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_PASS_dp${min_read_depth}_fNEG.csv',
+              '$out/$checked_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_PASS_dp${min_read_depth}_stats.csv'],
+    source = [deepvariant_cov_filtered,
+              filtered_variant_cov],
+    action = 'python $check_call ${SOURCES[0]} ${SOURCES[1]} ${TARGETS[0]} ${TARGETS[1]} ${TARGETS[2]}'
+)
+
+
+discosnp_cov_filtered = env.Command(
+    target = '$out/$called_out/$discosnp_out/${variant}_${discosnp_out}_normalized_dp${min_read_depth}.vcf',
+    source = discosnp_pass_sorted,
+    action = '$bcftools filter -i \'DP>=${min_read_depth}\' -o $TARGET $SOURCE'
 )
 
 discosnp_fpos, discosnp_fneg, discosnp_stats = env.Command(
-    target = ['$out/$checked_out/$discosnp_out/${variant}_${discosnp_out}-edit_normalized_PASSsorted_fPOS.csv',
-              '$out/$checked_out/$discosnp_out/${variant}_${discosnp_out}-edit_normalized_PASSsorted_fNEG.csv',
-              '$out/$checked_out/$discosnp_out/${variant}_${discosnp_out}-edit_normalized_PASSsorted_stats.csv'],
-    source = [discosnp_pass_sorted,
-              variant_csv],
-    action = 'python $check_call ${SOURCES[0]} ${SOURCES[1]} ${TARGETS[0]} ${TARGETS[1]}'
+    target = ['$out/$checked_out/$discosnp_out/${variant}_${discosnp_out}-edit_normalized_PASSsorted_dp${min_read_depth}_fPOS.csv',
+              '$out/$checked_out/$discosnp_out/${variant}_${discosnp_out}-edit_normalized_PASSsorted_dp${min_read_depth}_fNEG.csv',
+              '$out/$checked_out/$discosnp_out/${variant}_${discosnp_out}-edit_normalized_PASSsorted_dp${min_read_depth}_stats.csv'],
+    source = [discosnp_cov_filtered,
+              filtered_variant_cov],
+    action = 'python $check_call ${SOURCES[0]} ${SOURCES[1]} ${TARGETS[0]} ${TARGETS[1]} ${TARGETS[2]}'
+)
+
+
+lancet_cov_filtered = env.Command(
+    target = '$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_dp${min_read_depth}.vcf',
+    source = lancet_final_vcf,
+    action = '$bcftools filter -i \'DP>=${min_read_depth}\' -o $TARGET $SOURCE'
 )
 
 lancet_fpos, lancet_fneg, lancet_stats = env.Command(
-    target = ['$out/$checked_out/$lancet_out/${variant}_${lancet_out}_normalized_fPOS.csv',
-              '$out/$checked_out/$lancet_out/${variant}_${lancet_out}_normalized_fNEG.csv',
-              '$out/$checked_out/$lancet_out/${variant}_${lancet_out}_normalized_stats.csv'],
-    source = [lancet_final_vcf,
-              variant_csv],
-    action = 'python $check_call ${SOURCES[0]} ${SOURCES[1]} ${TARGETS[0]} ${TARGETS[1]}'
+    target = ['$out/$checked_out/$lancet_out/${variant}_${lancet_out}_normalized_dp${min_read_depth}_fPOS.csv',
+              '$out/$checked_out/$lancet_out/${variant}_${lancet_out}_normalized_dp${min_read_depth}_fNEG.csv',
+              '$out/$checked_out/$lancet_out/${variant}_${lancet_out}_normalized_dp${min_read_depth}_stats.csv'],
+    source = [lancet_cov_filtered,
+              filtered_variant_cov],
+    action = 'python $check_call ${SOURCES[0]} ${SOURCES[1]} ${TARGETS[0]} ${TARGETS[1]} ${TARGETS[2]}'
+)
+
+'''
+delly_cov_filtered = env.Command(
+    target = '$out/$called_out/$delly_out/${variant}_${delly_out}_normalized_dp${min_read_depth}.vcf',
+    source = delly_normalized,
+    action = '$bcftools filter -i \'DP>=${min_read_depth}\' -o $TARGET $SOURCE'
 )
 
 delly_fpos, delly_fneg, delly_stats = env.Command(
-    target = ['$out/$checked_out/$delly_out/${variant}_${delly_out}_normalized_fPOS.csv',
-              '$out/$checked_out/$delly_out/${variant}_${delly_out}_normalized_fNEG.csv',
-              '$out/$checked_out/$delly_out/${variant}_${delly_out}_normalized_stats.csv'],
-    source = [delly_normalized,
-              variant_csv],
-    action = 'python $check_call ${SOURCES[0]} ${SOURCES[1]} ${TARGETS[0]} ${TARGETS[1]}'
+    target = ['$out/$checked_out/$delly_out/${variant}_${delly_out}_normalized_dp${min_read_depth}_fPOS.csv',
+              '$out/$checked_out/$delly_out/${variant}_${delly_out}_normalized_dp${min_read_depth}_fNEG.csv',
+              '$out/$checked_out/$delly_out/${variant}_${delly_out}_normalized_dp${min_read_depth}_stats.csv'],
+    source = [delly_cov_filtered,
+              filtered_variant_cov],
+    action = 'python $check_call ${SOURCES[0]} ${SOURCES[1]} ${TARGETS[0]} ${TARGETS[1]} ${TARGETS[2]}'
+)
+'''
+
+vardict_cov_filtered = env.Command(
+    target = '$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_dp${min_read_depth}.vcf',
+    source = vardict_normalized,
+    action = '$bcftools filter -i \'DP>=${min_read_depth}\' -o $TARGET $SOURCE'
 )
 
 vardict_fpos, vardict_fneg, vardict_stats = env.Command(
-    target = ['$out/$checked_out/$vardict_out/${variant}_${vardict_out}_normalized_fPOS.csv',
-              '$out/$checked_out/$vardict_out/${variant}_${vardict_out}_normalized_fNEG.csv',
-              '$out/$checked_out/$vardict_out/${variant}_${vardict_out}_normalized_stats.csv'],
-    source = [vardict_normalized,
-              variant_csv],
-    action = 'python $check_call ${SOURCES[0]} ${SOURCES[1]} ${TARGETS[0]} ${TARGETS[1]}'
+    target = ['$out/$checked_out/$vardict_out/${variant}_${vardict_out}_normalized_dp${min_read_depth}_fPOS.csv',
+              '$out/$checked_out/$vardict_out/${variant}_${vardict_out}_normalized_dp${min_read_depth}_fNEG.csv',
+              '$out/$checked_out/$vardict_out/${variant}_${vardict_out}_normalized_dp${min_read_depth}_stats.csv'],
+    source = [vardict_cov_filtered,
+              filtered_variant_cov],
+    action = 'python $check_call ${SOURCES[0]} ${SOURCES[1]} ${TARGETS[0]} ${TARGETS[1]} ${TARGETS[2]}'
 )
 
 

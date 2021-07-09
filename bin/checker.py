@@ -14,6 +14,7 @@ def get_args():
                         help="output csv with false posistive variants")
     parser.add_argument('false_negatives', type=argparse.FileType('w'),
                         help="output csv with false negative variants")
+    parser.add_argument('summary', help="output summary csv")
     return parser.parse_args()
 
 
@@ -148,9 +149,8 @@ def main():
     write_variants(fps, fieldnames, args.false_positives)
     write_variants(fns, fieldnames, args.false_negatives)
     tp, fp, fn, snp, ins, dele, precision, recall = stats(tps, fps, fns)
-    output_dir = '/'.join(args.false_positives.name.split('/')[:-1])
     samplename = args.merged_vcf.name.split('/')[-1].split('.')[0]
-    with open(output_dir + '/' + samplename + '_stats.csv', 'w') as vcfile:
+    with open(args.summary, 'w') as vcfile:
         vcfile.write('SAMPLE,TP,TP_SNP,TP_IND,FP,FP_SNP,FP_IND,FN,FN_SNP,FN_IND,PRECISION,RECALL\n')
         vcfile.write(samplename + ',' \
                      + tp + ',' + str(snp[0]) + ',' + str(ins[0] + dele[0]) + ',' \
