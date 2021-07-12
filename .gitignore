@@ -2,4 +2,10 @@ h37ra/
 mtb_amr-env/
 vcf_data/
 bin/conda_requirements.txt
-
+notebooks/*.csv
+notebooks/*.png
+notebooks/.ipynb_checkpoints
+*.DS_Store
+__pycache__/
+.sconsign.dblite
+issue*/
