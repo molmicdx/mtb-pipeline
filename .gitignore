@@ -6,3 +6,14 @@ notebooks/*.csv
 notebooks/*.png
 notebooks/.ipynb_checkpoints
 *.DS_Store
+bin/bin/
+bin/htslib-1.12
+bin/include/
+bin/lancet*
+bin/lib/
+bin/misc/
+bin/share/
+data/CP016972*
+issue*
+output/igv_snapshots/
+
