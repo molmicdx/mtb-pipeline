@@ -5,27 +5,35 @@ import vcfpy
 
 
 def get_args():
-    parser = argparse.ArgumentParser(description="Check pipeline results with true variants. Outputs 3 CSVs: false positives, false negatives, and summary including precision, recall")
+    parser = argparse.ArgumentParser(description="Check pipeline results with true variants. Outputs 2 CSVs: called variants and summary")
+    parser.add_argument('variant_caller', help="name of variant caller")
+    parser.add_argument('sample', help="name of sample")
     parser.add_argument('merged_vcf', type=argparse.FileType('r'),
                         help="merged vcf file with pipeline results")
     parser.add_argument('true_variants', type=argparse.FileType('r'),
                         help="csv file with sorted true variants")
-    parser.add_argument('false_positives', type=argparse.FileType('w'),
-                        help="output csv with false posistive variants")
-    parser.add_argument('false_negatives', type=argparse.FileType('w'),
-                        help="output csv with false negative variants")
+    parser.add_argument('called_variants', type=argparse.FileType('w'),
+                        help="output csv with called variants")
     parser.add_argument('summary', help="output summary csv")
     return parser.parse_args()
 
 
 def get_variant_from_vcf_record(record):
+    args = get_args()
     variant = {}
     variant['CHROM'] = record.CHROM
     variant['POS'] = str(record.POS)
     variant['REF'] = record.REF
     variant['ALT'] = ','.join([alt.value for alt in record.ALT])
     for call in record.calls:
+        #print(call)
         variant[call.sample] = call.data['GT']
+        variant['DP'] = str(call.data['DP'])
+        variant['AD'] = ':'.join(str(call.data['AD']).split(','))
+        variant['TRUE_POS'] = 0
+        variant['FALSE_POS'] = 0
+        variant['FALSE_NEG'] = 0
+        variant['TOOL'] = args.variant_caller
     #mutation_types = ['TYPE', 'Ty'] 
     #for mut in mutation_types:
     #    if mut in record.INFO.keys():
@@ -60,27 +68,37 @@ def is_match(vcf_record, true_variant):
 
 
 def check(vcf_reader, true_variants_reader):
+    all_variants = []
     tps, fps, fns = [], [], []
     vcf_record = next(vcf_reader, None)
     true_variant = next(true_variants_reader, None)
     while vcf_record and true_variant:
+        called = get_variant_from_vcf_record(vcf_record)
         if (vcf_record.CHROM, vcf_record.POS) <= (true_variant['CHROM'], int(true_variant['POS'])):
             if is_match(vcf_record, true_variant):
-                tps.append(true_variant)
+                called['TRUE_POS'] = 1
+                all_variants.append(called)
+                tps.append(called)
                 true_variant = next(true_variants_reader, None)
             else:
-                fps.append(get_variant_from_vcf_record(vcf_record))
+                called['FALSE_POS'] = 1
+                all_variants.append(called)
+                fps.append(called)
             vcf_record = next(vcf_reader, None)
         else:
+            all_variants.append(true_variant)
             fns.append(true_variant)
             true_variant = next(true_variants_reader, None)
     while vcf_record:
-        fps.append(get_variant_from_vcf_record(vcf_record))
+        called['FALSE_POS'] = 1
+        all_variants.append(called)
+        fps.append(called)
         vcf_record = next(vcf_reader, None)
     while true_variant:
+        all_variants.append(true_variant)
         fns.append(true_variant)
         true_variant = next(true_variants_reader, None)
-    return tps, fps, fns
+    return all_variants, tps, fps, fns
 
 def stats(tps, fps, fns):
     tp = str(len(tps))
@@ -131,6 +149,7 @@ def stats(tps, fps, fns):
 
     return tp, fp, fn, snp, ins, dele, precision, recall
 
+
 def write_variants(variants, fieldnames, file):
     writer = csv.DictWriter(file, fieldnames=fieldnames)
     writer.writeheader()
@@ -139,24 +158,22 @@ def write_variants(variants, fieldnames, file):
 
 def main():
     args = get_args()
-    tps, fps, fns = check(vcfpy.Reader(args.merged_vcf), csv.DictReader(args.true_variants))
-    try: #catch exception when using reference reads, i.e., no true variants
-        fieldnames = tps[0].keys()
-    except IndexError:
-        with open(args.true_variants.name, 'r') as tvfile:
-            header = tvfile.readline().rstrip()
-        fieldnames = {col: ',' for col in header.split(',')}.keys()
-    write_variants(fps, fieldnames, args.false_positives)
-    write_variants(fns, fieldnames, args.false_negatives)
+    all_variants, tps, fps, fns = check(vcfpy.Reader(args.merged_vcf), csv.DictReader(args.true_variants))
+    fieldnames = ['CHROM','POS','REF','ALT','TYPE','AD','DP','TRUE_POS','FALSE_POS','FALSE_NEG','TOOL',args.sample]
+    write_variants(all_variants, fieldnames, args.called_variants)
+    #write_variants(fps, fieldnames, args.false_positives)
+    #write_variants(fns, fieldnames, args.false_negatives)
     tp, fp, fn, snp, ins, dele, precision, recall = stats(tps, fps, fns)
     samplename = args.merged_vcf.name.split('/')[-1].split('.')[0]
     with open(args.summary, 'w') as vcfile:
-        vcfile.write('SAMPLE,TP,TP_SNP,TP_IND,FP,FP_SNP,FP_IND,FN,FN_SNP,FN_IND,PRECISION,RECALL\n')
+        vcfile.write('file_prefix,true_pos,true_pos_snp,true_pos_ind,false_pos,'\
+                'false_pos_snp,false_pos_ind,false_neg,false_neg_snp,false_neg_ind,'\
+                'precision,recall,tool\n')
         vcfile.write(samplename + ',' \
                      + tp + ',' + str(snp[0]) + ',' + str(ins[0] + dele[0]) + ',' \
                      + fp + ',' + str(snp[1]) + ',' + str(ins[1] + dele[1]) + ',' \
                      + fn + ',' + str(snp[2]) + ',' + str(ins[2] + dele[2]) + ',' \
-                     + precision + ',' + recall + '\n')
+                     + precision + ',' + recall + ',' + args.variant_caller + '\n')
 
 if __name__ == '__main__':
     sys.exit(main())
