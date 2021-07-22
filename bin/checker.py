@@ -161,15 +161,10 @@ def main():
     all_variants, tps, fps, fns = check(vcfpy.Reader(args.merged_vcf), csv.DictReader(args.true_variants))
     fieldnames = ['CHROM','POS','REF','ALT','TYPE','AD','DP','TRUE_POS','FALSE_POS','FALSE_NEG','TOOL',args.sample]
     write_variants(all_variants, fieldnames, args.called_variants)
-    #write_variants(fps, fieldnames, args.false_positives)
-    #write_variants(fns, fieldnames, args.false_negatives)
     tp, fp, fn, snp, ins, dele, precision, recall = stats(tps, fps, fns)
-    samplename = args.merged_vcf.name.split('/')[-1].split('.')[0]
     with open(args.summary, 'w') as vcfile:
-        vcfile.write('file_prefix,true_pos,true_pos_snp,true_pos_ind,false_pos,'\
-                'false_pos_snp,false_pos_ind,false_neg,false_neg_snp,false_neg_ind,'\
-                'precision,recall,tool\n')
-        vcfile.write(samplename + ',' \
+        vcfile.write('SAMPLE,TRUE_POS,TP_SNP,TP_IND,FALSE_POS,FP_SNP,FP_IND,FALSE_NEG,FN_SNP,FN_IND,PRECISION,RECALL,TOOL\n')
+        vcfile.write(args.sample + ',' \
                      + tp + ',' + str(snp[0]) + ',' + str(ins[0] + dele[0]) + ',' \
                      + fp + ',' + str(snp[1]) + ',' + str(ins[1] + dele[1]) + ',' \
                      + fn + ',' + str(snp[2]) + ',' + str(ins[2] + dele[2]) + ',' \
