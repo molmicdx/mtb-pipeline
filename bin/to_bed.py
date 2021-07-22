@@ -11,8 +11,8 @@ with open(args.file, 'r') as mutation_csv:
     with open(bedfile, 'w') as outbed:
         for row in mutations[1:]:
             data = row.split(',')
-            pos = int(data[1])
-            size = len(data[3].rstrip()) #length of mutation
-            chromEnd = str(pos + size)
-            outbed.write('\t'.join(data[:2]) + '\t' + chromEnd + '\n')
+            chromStart = int(data[1]) - 1
+            size = abs(len(data[3].rstrip()) - len(data[2].rstrip())) #length of mutation
+            chromEnd = chromStart + size
+            outbed.write(data[0] + '\t' + str(chromStart) + '\t' + str(chromEnd) + '\n')
 

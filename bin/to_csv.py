@@ -1,40 +1,35 @@
 import argparse
+import csv
+import vcfpy
 
-parser = argparse.ArgumentParser(description='Convert variants.py mutation list (txt or vcf), to csv for checker.py')
+parser = argparse.ArgumentParser(description='Convert variants.py mutation list (vcf), to csv for checker.py')
 
-parser.add_argument('file', help='txt or vcf input file')
-parser.add_argument('sample', help='sample name')
-parser.add_argument('-t', '--txt', action='store_true', help='input is txt')
-parser.add_argument('-v', '--vcf', action='store_true', help='input is vcf')
+parser.add_argument('file', type=argparse.FileType('r'), help='vcf input file')
+parser.add_argument('outcsv', type=argparse.FileType('w'), help='name of output csv file')
+parser.add_argument('-t', '--txt', action='store_true', help='input is text file')
 args = parser.parse_args()
 
-csvfile = args.file + '.csv'
-csv_header = 'CHROM,POS,REF,ALT,TYPE,' + args.sample + '\n'
-
-with open(args.file, 'r') as mutation_list:
-    mutations = mutation_list.readlines()
-    with open(csvfile, 'w') as outcsv:
-        outcsv.write(csv_header)
-        if args.txt:
-            for row in mutations[1:]:
-                # check that it is not an empty row
-                if len(row) > 1:
-                    csv_row_fields = row.rstrip().split('\t')
-                    csv_row_fields.pop(2)
-                    csv_row = ','.join(csv_row_fields) + ',1\n'
-                    outcsv.write(csv_row)
-        elif args.vcf:
-            vcf_mutations = []
-            for line in mutations:
-                if line.startswith('#'):
-                    continue
-                else:
-                    vcf_mutations.append(line)
-            for row in vcf_mutations:
-                # check that it is not an empty row
-                if len(row) > 1:
-                    csv_row_fields = row.rstrip().split('\t')
-                    new_csv_row = csv_row_fields[:2] + csv_row_fields[3:5]
-                    csv_row = ','.join(new_csv_row) + ',' + csv_row_fields[7].split('=')[1] + ',1\n'
-                    outcsv.write(csv_row)
-
+vcf_reader = vcfpy.Reader(args.file)
+fieldnames = ['CHROM','POS','REF','ALT','TYPE','AD','DP','TRUE_POS','FALSE_POS','FALSE_NEG','TOOL'] + [sample for sample in vcf_reader.header.samples.names]
+writer = csv.DictWriter(args.outcsv, fieldnames=fieldnames)
+writer.writeheader()
+record = next(vcf_reader, None)
+while record:
+    true_variant = {}
+    true_variant['CHROM'] = record.CHROM
+    true_variant['POS'] = str(record.POS)
+    true_variant['REF'] = record.REF
+    true_variant['ALT'] = ','.join([alt.value for alt in record.ALT])
+    for call in record.calls:
+        true_variant[call.sample] = call.data['GT']
+        true_variant['TRUE_POS'] = 1
+        true_variant['FALSE_POS'] = 0
+        true_variant['FALSE_NEG'] = 0
+    if len(true_variant['REF']) == 1 and len(true_variant['ALT']) == 1:
+        true_variant['TYPE'] = 'SNP'
+    elif len(true_variant['REF']) > len(true_variant['ALT']):
+        true_variant['TYPE'] = 'DEL'
+    elif len(true_variant['REF']) < len(true_variant['ALT']):
+        true_variant['TYPE'] = 'INS'
+    writer.writerow(true_variant)
+    record = next(vcf_reader, None)
