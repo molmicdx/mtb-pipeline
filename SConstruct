@@ -65,7 +65,7 @@ env = Environment(
     variants_config = config.get('variant_simulation', 'variants_config'),
     to_csv = config.get('variant_simulation', 'to_csv_script'),
     to_bed = config.get('variant_simulation', 'to_bed_script'),
-    filter_cov = config.get('variant_simulation', 'filter_by_cov_script'),
+    add_cov = config.get('variant_simulation', 'add_cov_script'),
     read1_q = config.get('variant_simulation', 'r1_qual_profile'),
     read2_q = config.get('variant_simulation', 'r2_qual_profile'),
     read_len = config.get('variant_simulation', 'read_length'),
@@ -460,7 +460,7 @@ deepvariant_tbi, deepvariant_igv, deepvariant_igv_log = env.Command(
 
 
 # ################### delly #####################
-
+'''
 delly_bcf, delly_log  = env.Command(
     target = ['$out/$called_out/$delly_out/${variant}_${delly_out}.bcf',
               '$log/$called_out/$delly_out/${variant}_${delly_out}.log'],
@@ -501,7 +501,7 @@ delly_tbi, delly_igv, delly_igv_log = env.Command(
               'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
               '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
 )
-
+'''
 
 # ################### Lancet ####################
 
@@ -656,7 +656,7 @@ bedfile = env.Command(
     source = mq_filtered_bam,
     action = '$bedtools bamtobed -i $SOURCE > $TARGET'
 )
-
+'''
 vardict_vcf = env.Command(
     target = '$out/$called_out/$vardict_out/${variant}_vardict.vcf',
     source = ['$reference',
@@ -694,14 +694,14 @@ vardict_tbi, vardict_igv, vardict_igv_log = env.Command(
               'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
               '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
 )
-
+'''
 
 # ############### Get Variant Coverage ################
 
 variant_csv = env.Command(
     target = '$out/$variants_out/${variant}_normalized.vcf.csv',
     source = normalized_variant_vcf,
-    action = 'python $to_csv $SOURCE $variant --vcf'
+    action = 'python $to_csv $SOURCE $TARGET'
 )
 
 variant_bed = env.Command(
@@ -716,21 +716,26 @@ genome_cov = env.Command(
     action = '$bedtools genomecov -ibam $SOURCE -bga > $TARGET'
 )
 
-variant_cov = env.Command(
-    target = '$out/$variants_out/${variant}_normalized_genomecov_intersect.bed',
-    source = [variant_bed,
+variant_cov_bed, variant_cov_csv = env.Command(
+    target = ['$out/$variants_out/${variant}_normalized_genomecov_intersect.bed',
+              '$out/$variants_out/${variant}_normalized_cov.csv'],
+    source = [variant_csv,
+              variant_bed,
               genome_cov],
-    action = ('$bedtools intersect -a ${SOURCES[0]} -b ${SOURCES[1]} -wo | '
-              'cut -f 1-3,7 > $TARGET')
+    action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -loj > ${TARGETS[0]}; '
+              'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
 )
 
+
+
+'''
 filtered_variant_cov = env.Command(
     target = '$out/$variants_out/${variant}_normalized_dp${min_read_depth}.csv',
     source = [variant_cov,
               variant_csv],
     action = 'python $filter_cov ${SOURCES[0]} ${SOURCES[1]} $min_read_depth'
 )
-
+'''
 
 # ################### Check Calls ######################
 
@@ -739,16 +744,16 @@ gatk_cov_filtered = env.Command(
     source = gatk_normalized,
     action = '$bcftools filter -i \'DP>=${min_read_depth}\' -o $TARGET $SOURCE'
 )
-gatk_fpos, gatk_fneg, gatk_stats = env.Command(
-    target = ['$out/$checked_out/$gatk_out/${variant}_${gatk_out}_normalized_dp${min_read_depth}_fPOS.csv',
-              '$out/$checked_out/$gatk_out/${variant}_${gatk_out}_normalized_dp${min_read_depth}_fNEG.csv',
+
+gatk_calls, gatk_stats = env.Command(
+    target = ['$out/$checked_out/$gatk_out/${variant}_${gatk_out}_normalized_dp${min_read_depth}_checked.csv',
               '$out/$checked_out/$gatk_out/${variant}_${gatk_out}_normalized_dp${min_read_depth}_stats.csv'],
     source = [gatk_cov_filtered,
-              filtered_variant_cov],
-    action = 'python $check_call ${SOURCES[0]} ${SOURCES[1]} ${TARGETS[0]} ${TARGETS[1]} ${TARGETS[2]}'
+              variant_cov_csv],
+    action = 'python $check_call $gatk_out $variant ${SOURCES[0]} ${SOURCES[1]} ${TARGETS[0]} ${TARGETS[1]}'
 )
 
-
+'''
 bcftools_cov_filtered = env.Command(
     target = '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_dp${min_read_depth}.vcf',
     source = bcftools_normalized,
@@ -828,7 +833,7 @@ lancet_fpos, lancet_fneg, lancet_stats = env.Command(
     action = 'python $check_call ${SOURCES[0]} ${SOURCES[1]} ${TARGETS[0]} ${TARGETS[1]} ${TARGETS[2]}'
 )
 
-'''
+
 delly_cov_filtered = env.Command(
     target = '$out/$called_out/$delly_out/${variant}_${delly_out}_normalized_dp${min_read_depth}.vcf',
     source = delly_normalized,
@@ -843,7 +848,7 @@ delly_fpos, delly_fneg, delly_stats = env.Command(
               filtered_variant_cov],
     action = 'python $check_call ${SOURCES[0]} ${SOURCES[1]} ${TARGETS[0]} ${TARGETS[1]} ${TARGETS[2]}'
 )
-'''
+
 
 vardict_cov_filtered = env.Command(
     target = '$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_dp${min_read_depth}.vcf',
@@ -859,18 +864,20 @@ vardict_fpos, vardict_fneg, vardict_stats = env.Command(
               filtered_variant_cov],
     action = 'python $check_call ${SOURCES[0]} ${SOURCES[1]} ${TARGETS[0]} ${TARGETS[1]} ${TARGETS[2]}'
 )
+'''
 
 summary_csv = env.Command(
     target = '$out/$checked_out/${variant}_alltools_normalized_dp${min_read_depth}_stats.csv',
-    source = [gatk_stats,
-              bcftools_stats,
-              freebayes_stats,
-              deepvariant_stats,
-              discosnp_stats,
-              lancet_stats,
+    source = gatk_stats,
+              #bcftools_stats,
+              #freebayes_stats,
+              #deepvariant_stats,
+              #discosnp_stats,
+              #lancet_stats],
               #delly_stats,
-              vardict_stats],
-    action = ('echo \'SAMPLE,TP,TP_SNP,TP_IND,FP,FP_SNP,FP_IND,FN,FN_SNP,FN_IND,PRECISION,RECALL\\n\' > $TARGET; '
-              'cat $SOURCES | sed \'/SAMPLE,TP,TP_SNP,TP_IND,FP,FP_SNP,FP_IND,FN,FN_SNP,FN_IND,PRECISION,RECALL/d\' '
-              '>> $TARGET')
+              #vardict_stats],
+    action = ('echo \'SAMPLE,TRUE_POS,TP_SNP,TP_IND,FALSE_POS,FP_SNP,FP_IND,FALSE_NEG,FN_SNP,FN_IND,'
+              'PRECISION,RECALL,TOOL\' > $TARGET; ')
 )
+
+

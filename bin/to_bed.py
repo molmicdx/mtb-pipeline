@@ -13,6 +13,8 @@ with open(args.file, 'r') as mutation_csv:
             data = row.split(',')
             chromStart = int(data[1]) - 1
             size = abs(len(data[3].rstrip()) - len(data[2].rstrip())) #length of mutation
+            if size == 0: #SNP size
+                size = 1
             chromEnd = chromStart + size
             outbed.write(data[0] + '\t' + str(chromStart) + '\t' + str(chromEnd) + '\n')
 
