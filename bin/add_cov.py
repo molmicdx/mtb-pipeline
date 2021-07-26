@@ -1,7 +1,7 @@
 import argparse
 import csv
 
-parser = argparse.ArgumentParser(description='Filter true mutations based on read depth. Input bed file is produced by bedtools from the left outer join intersection of true variants bed and genome coverage bed files')
+parser = argparse.ArgumentParser(description='Add read depth to true mutations file. Input bed file is produced by bedtools from the left outer join intersection of true variants bed and genome coverage bed files')
 
 parser.add_argument('variant_bed', type=argparse.FileType('r'), help='variant bed file with genome coverage information')
 parser.add_argument('true_mutations_csv', type=argparse.FileType('r'), help='csv file of true mutations')
@@ -27,7 +27,7 @@ writer.writeheader()
 
 true_mutation = next(true_mutations_reader, None)
 while true_mutation:
-    true_mutation['DP'] = round(sum(cov[int(true_mutation['POS'])])/len(cov[int(true_mutation['POS'])]))
+    true_mutation['BAM_DP'] = round(sum(cov[int(true_mutation['POS'])])/len(cov[int(true_mutation['POS'])]))
     writer.writerow(true_mutation)
     true_mutation = next(true_mutations_reader, None)
 
