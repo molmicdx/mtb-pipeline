@@ -855,8 +855,8 @@ all_checked_csv = env.Command(
              discosnp_calls,
              lancet_calls,
              vardict_calls],
-    action = ('echo \'CHROM,POS,REF,ALT,TYPE,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,TRUE_POS,FALSE_POS,FALSE_NEG,TOOL,SAMPLE\' > $TARGET; '
-              'cat $SOURCES | sed \'/CHROM,POS,REF,ALT,TYPE,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,TRUE_POS,FALSE_POS,FALSE_NEG,TOOL,SAMPLE/d\' >> $TARGET')
+    action = ('echo \'CHROM,POS,REF,ALT,TYPE,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,RK_DISCOSNP,TRUE_POS,FALSE_POS,FALSE_NEG,TOOL,SAMPLE\' > $TARGET; '
+              'cat $SOURCES | sed \'/CHROM,POS,REF,ALT,TYPE,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,RK_DISCOSNP,TRUE_POS,FALSE_POS,FALSE_NEG,TOOL,SAMPLE/d\' >> $TARGET')
 )
 
 

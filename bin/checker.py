@@ -5,7 +5,7 @@ import vcfpy
 
 
 def get_args():
-    parser = argparse.ArgumentParser(description="Check pipeline results with true variants. Outputs 2 CSVs: called variants and summary")
+    parser = argparse.ArgumentParser(description="Check pipeline results with true variants.")
     parser.add_argument('variant_caller', help="name of variant caller")
     parser.add_argument('sample', help="name of sample")
     parser.add_argument('merged_vcf', type=argparse.FileType('r'),
@@ -26,8 +26,11 @@ def get_variant_from_vcf_record(record):
     variant['REF'] = record.REF
     variant['ALT'] = ','.join([alt.value for alt in record.ALT])
     variant['QUAL'] = record.QUAL
+    try:
+        variant['RK_DISCOSNP'] = record.INFO['Rk']
+    except KeyError:
+        variant['RK_DISCOSNP'] = ''
     for call in record.calls:
-        #print(call)
         variant['SAMPLE'] = call.sample
         variant['GT'] = str(call.data['GT'])
         variant['DP'] = str(call.data['DP'])
@@ -163,7 +166,7 @@ def write_variants(variants, fieldnames, file):
 def main():
     args = get_args()
     all_variants, tps, fps, fns = check(vcfpy.Reader(args.merged_vcf), csv.DictReader(args.true_variants))
-    fieldnames = ['CHROM','POS','REF','ALT','TYPE','QUAL','AD_REF','AD_ALT','DP','BAM_DP','GT','TRUE_POS','FALSE_POS','FALSE_NEG','TOOL','SAMPLE']
+    fieldnames = ['CHROM','POS','REF','ALT','TYPE','QUAL','AD_REF','AD_ALT','DP','BAM_DP','GT','RK_DISCOSNP','TRUE_POS','FALSE_POS','FALSE_NEG','TOOL','SAMPLE']
     write_variants(all_variants, fieldnames, args.called_variants)
     tp, fp, fn, snp, ins, dele = stats(tps, fps, fns)
     '''
