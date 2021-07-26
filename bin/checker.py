@@ -25,6 +25,7 @@ def get_variant_from_vcf_record(record):
     variant['POS'] = str(record.POS)
     variant['REF'] = record.REF
     variant['ALT'] = ','.join([alt.value for alt in record.ALT])
+    variant['QUAL'] = record.QUAL
     for call in record.calls:
         #print(call)
         variant['SAMPLE'] = call.sample
@@ -162,15 +163,16 @@ def write_variants(variants, fieldnames, file):
 def main():
     args = get_args()
     all_variants, tps, fps, fns = check(vcfpy.Reader(args.merged_vcf), csv.DictReader(args.true_variants))
-    fieldnames = ['CHROM','POS','REF','ALT','TYPE','AD_REF','AD_ALT','DP','BAM_DP','GT','TRUE_POS','FALSE_POS','FALSE_NEG','TOOL','SAMPLE']
+    fieldnames = ['CHROM','POS','REF','ALT','TYPE','QUAL','AD_REF','AD_ALT','DP','BAM_DP','GT','TRUE_POS','FALSE_POS','FALSE_NEG','TOOL','SAMPLE']
     write_variants(all_variants, fieldnames, args.called_variants)
     tp, fp, fn, snp, ins, dele = stats(tps, fps, fns)
+    '''
     with open(args.summary, 'w') as vcfile:
         vcfile.write('SAMPLE,TRUE_POS,TP_SNP,TP_IND,FALSE_POS,FP_SNP,FP_IND,FALSE_NEG,FN_SNP,FN_IND,TOOL\n')
         vcfile.write(args.sample + ',' \
                      + tp + ',' + str(snp[0]) + ',' + str(ins[0] + dele[0]) + ',' \
                      + fp + ',' + str(snp[1]) + ',' + str(ins[1] + dele[1]) + ',' \
                      + fn + ',' + str(snp[2]) + ',' + str(ins[2] + dele[2]) + ',' + args.variant_caller + '\n')
-
+    '''
 if __name__ == '__main__':
     sys.exit(main())
