@@ -113,56 +113,6 @@ def check(vcf_reader, true_variants_reader):
         true_variant = next(true_variants_reader, None)
     return all_variants, tps, fps, fns
 
-def stats(tps, fps, fns):
-    tp = str(len(tps))
-    fp = str(len(fps))
-    fn = str(len(fns))
-    
-    snp = [0,0,0]
-    ins = [0,0,0]
-    dele = [0,0,0]
-    try:
-        for variant in tps:
-            if variant['TYPE'] == 'SNP':
-                snp[0] += 1
-            elif variant['TYPE'] == 'INS':
-                ins[0] += 1
-            elif variant['TYPE'] == 'DEL':
-                dele[0] += 1
-    except KeyError:
-        pass
-    try:
-        for variant in fps:
-            if variant['TYPE'] == 'SNP':
-                snp[1] += 1
-            elif variant['TYPE'] == 'INS':
-                ins[1] += 1
-            elif variant['TYPE'] == 'DEL':
-                dele[1] += 1
-    except KeyError:
-        pass
-    try:
-        for variant in fns:
-            if variant['TYPE'] == 'SNP':
-                snp[2] += 1
-            elif variant['TYPE'] == 'INS':
-                ins[2] += 1
-            elif variant['TYPE'] == 'DEL':
-                dele[2] += 1
-    except KeyError:
-        pass
-    '''
-    try:
-        precision = str(len(tps)/(len(tps) + len(fps)))
-    except ZeroDivisionError:
-        precision = '.'
-    try:
-        recall = str(len(tps)/(len(tps) + len(fns)))
-    except ZeroDivisionError:
-        recall = '.'
-    '''
-    return tp, fp, fn, snp, ins, dele
-
 
 def write_variants(variants, fieldnames, file):
     writer = csv.DictWriter(file, fieldnames=fieldnames)
@@ -175,14 +125,6 @@ def main():
     all_variants, tps, fps, fns = check(vcfpy.Reader(args.merged_vcf), csv.DictReader(args.true_variants))
     fieldnames = ['CHROM','POS','REF','ALT','TYPE','QUAL','AD_REF','AD_ALT','DP','BAM_DP','GT','RK_DISCOSNP','TRUE_POS','FALSE_POS','FALSE_NEG','TOOL','SAMPLE']
     write_variants(all_variants, fieldnames, args.called_variants)
-    tp, fp, fn, snp, ins, dele = stats(tps, fps, fns)
-    '''
-    with open(args.summary, 'w') as vcfile:
-        vcfile.write('SAMPLE,TRUE_POS,TP_SNP,TP_IND,FALSE_POS,FP_SNP,FP_IND,FALSE_NEG,FN_SNP,FN_IND,TOOL\n')
-        vcfile.write(args.sample + ',' \
-                     + tp + ',' + str(snp[0]) + ',' + str(ins[0] + dele[0]) + ',' \
-                     + fp + ',' + str(snp[1]) + ',' + str(ins[1] + dele[1]) + ',' \
-                     + fn + ',' + str(snp[2]) + ',' + str(ins[2] + dele[2]) + ',' + args.variant_caller + '\n')
-    '''
+
 if __name__ == '__main__':
     sys.exit(main())
