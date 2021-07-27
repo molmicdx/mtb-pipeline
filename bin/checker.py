@@ -81,6 +81,7 @@ def is_match(vcf_record, true_variant):
 
 
 def check(vcf_reader, true_variants_reader):
+    args = get_args()
     all_variants = []
     tps, fps, fns = [], [], []
     vcf_record = next(vcf_reader, None)
@@ -99,6 +100,7 @@ def check(vcf_reader, true_variants_reader):
                 fps.append(called)
             vcf_record = next(vcf_reader, None)
         else:
+            true_variant['TOOL'] = args.variant_caller
             all_variants.append(true_variant)
             fns.append(true_variant)
             true_variant = next(true_variants_reader, None)
@@ -108,6 +110,7 @@ def check(vcf_reader, true_variants_reader):
         fps.append(called)
         vcf_record = next(vcf_reader, None)
     while true_variant:
+        true_variant['TOOL'] = args.variant_caller
         all_variants.append(true_variant)
         fns.append(true_variant)
         true_variant = next(true_variants_reader, None)
