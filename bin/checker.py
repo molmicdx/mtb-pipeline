@@ -105,6 +105,7 @@ def check(vcf_reader, true_variants_reader):
             fns.append(true_variant)
             true_variant = next(true_variants_reader, None)
     while vcf_record:
+        called = get_variant_from_vcf_record(vcf_record)
         called['FALSE_POS'] = 1
         all_variants.append(called)
         fps.append(called)
