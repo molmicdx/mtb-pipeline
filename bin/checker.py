@@ -14,7 +14,7 @@ def get_args():
                         help="csv file with sorted true variants")
     parser.add_argument('called_variants', type=argparse.FileType('w'),
                         help="output csv with called variants")
-    parser.add_argument('summary', help="output summary csv")
+    #parser.add_argument('summary', help="output summary csv")
     return parser.parse_args()
 
 
@@ -33,9 +33,16 @@ def get_variant_from_vcf_record(record):
     for call in record.calls:
         variant['SAMPLE'] = call.sample
         variant['GT'] = str(call.data['GT'])
-        variant['DP'] = str(call.data['DP'])
-        variant['AD_REF'] = str(call.data['AD'][0])
-        variant['AD_ALT'] = str(call.data['AD'][1])
+        try:
+            variant['DP'] = str(call.data['DP'])
+        except KeyError: # bcftools doesn't have DP yet
+            variant['DP'] = ''
+        try:
+            variant['AD_REF'] = str(call.data['AD'][0])
+            variant['AD_ALT'] = str(call.data['AD'][1])
+        except KeyError: #bcftools doesn't have AD yet
+            variant['AD_REF'] = ''
+            variant['AD_ALT'] = ''
         variant['TRUE_POS'] = 0
         variant['FALSE_POS'] = 0
         variant['FALSE_NEG'] = 0
