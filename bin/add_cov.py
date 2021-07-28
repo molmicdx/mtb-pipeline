@@ -6,7 +6,7 @@ parser = argparse.ArgumentParser(description='Add read depth to true mutations f
 parser.add_argument('variant_bed', type=argparse.FileType('r'), help='variant bed file with genome coverage information')
 parser.add_argument('true_mutations_csv', type=argparse.FileType('r'), help='csv file of true mutations')
 parser.add_argument('variant_cov', type=argparse.FileType('w'), help='output csv with mutations and average read depths')
-#parser.add_argument('cov_threshold', help='remove mutations with coverage below INT')
+parser.add_argument('cov_threshold', help='remove mutations with coverage below INT')
 
 args = parser.parse_args()
 
@@ -28,6 +28,7 @@ writer.writeheader()
 true_mutation = next(true_mutations_reader, None)
 while true_mutation:
     true_mutation['BAM_DP'] = round(sum(cov[int(true_mutation['POS'])])/len(cov[int(true_mutation['POS'])]))
-    writer.writerow(true_mutation)
+    if true_mutation['BAM_DP'] >= int(args.cov_threshold):
+        writer.writerow(true_mutation)
     true_mutation = next(true_mutations_reader, None)
 

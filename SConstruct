@@ -727,7 +727,7 @@ variant_cov_bed, variant_cov_csv = env.Command(
               variant_bed,
               genome_cov],
     action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -loj > ${TARGETS[0]}; '
-              'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
+              'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]} $min_read_depth')
 )
 
 
