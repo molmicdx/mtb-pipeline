@@ -731,16 +731,6 @@ variant_cov_bed, variant_cov_csv = env.Command(
 )
 
 
-
-'''
-filtered_variant_cov = env.Command(
-    target = '$out/$variants_out/${variant}_normalized_dp${min_read_depth}.csv',
-    source = [variant_cov,
-              variant_csv],
-    action = 'python $filter_cov ${SOURCES[0]} ${SOURCES[1]} $min_read_depth'
-)
-'''
-
 # ################### Check Calls ######################
 
 gatk_cov_filtered = env.Command(
