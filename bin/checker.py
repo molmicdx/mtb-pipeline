@@ -2,7 +2,6 @@ import argparse
 import csv
 import sys
 import vcfpy
-import format_files as ff
 
 def get_args():
     parser = argparse.ArgumentParser(description="Check pipeline results with true variants.")
@@ -12,6 +11,8 @@ def get_args():
                         help="merged vcf file with pipeline results")
     parser.add_argument('true_variants', type=argparse.FileType('r'),
                         help="csv file with sorted true variants")
+    parser.add_argument('variant_cov', type=argparse.FileType('r'),
+                        help='csv file of called variants with BAM read depths')
     parser.add_argument('called_variants', type=argparse.FileType('w'),
                         help="output csv with called variants")
     #parser.add_argument('summary', help="output summary csv")
@@ -73,14 +74,17 @@ def is_match(vcf_record, true_variant):
     return chrom and pos and ref and alt and genotypes
 
 
-def check(vcf_reader, true_variants_reader):
+def check(vcf_reader, true_variants_reader, vcf_cov_reader):
     args = get_args()
     all_variants = []
     tps, fps, fns = [], [], []
     vcf_record = next(vcf_reader, None)
     true_variant = next(true_variants_reader, None)
+    vcf_cov = next(vcf_cov_reader, None)
     while vcf_record and true_variant:
         called = get_variant_from_vcf_record(vcf_record)
+        if called['POS'] == vcf_cov['POS']:
+            called['BAM_DP'] = vcf_cov['BAM_DP']
         if (vcf_record.CHROM, vcf_record.POS) <= (true_variant['CHROM'], int(true_variant['POS'])):
             if is_match(vcf_record, true_variant):
                 called['TRUE_POS'] = 1
@@ -92,6 +96,7 @@ def check(vcf_reader, true_variants_reader):
                 all_variants.append(called)
                 fps.append(called)
             vcf_record = next(vcf_reader, None)
+            vcf_cov = next(vcf_cov_reader, None)
         else:
             true_variant['TOOL'] = args.variant_caller
             all_variants.append(true_variant)
@@ -99,15 +104,19 @@ def check(vcf_reader, true_variants_reader):
             true_variant = next(true_variants_reader, None)
     while vcf_record:
         called = get_variant_from_vcf_record(vcf_record)
+        if called['POS'] == vcf_cov['POS']:
+            called['BAM_DP'] = vcf_cov['BAM_DP']
         called['FALSE_POS'] = 1
         all_variants.append(called)
         fps.append(called)
         vcf_record = next(vcf_reader, None)
+        vcf_cov = next(vcf_cov_reader, None)
     while true_variant:
         true_variant['TOOL'] = args.variant_caller
         all_variants.append(true_variant)
         fns.append(true_variant)
         true_variant = next(true_variants_reader, None)
+    
     return all_variants, tps, fps, fns
 
 
@@ -119,7 +128,7 @@ def write_variants(variants, fieldnames, file):
 
 def main():
     args = get_args()
-    all_variants, tps, fps, fns = check(vcfpy.Reader(args.merged_vcf), csv.DictReader(args.true_variants))
+    all_variants, tps, fps, fns = check(vcfpy.Reader(args.merged_vcf), csv.DictReader(args.true_variants), csv.DictReader(args.variant_cov))
     fieldnames = ['CHROM','POS','REF','ALT','TYPE','QUAL','AD_REF','AD_ALT','DP','BAM_DP','GT','RK_DISCOSNP','TOOL','SAMPLE','TRUE_POS','FALSE_POS','FALSE_NEG']
     write_variants(all_variants, fieldnames, args.called_variants)
 
