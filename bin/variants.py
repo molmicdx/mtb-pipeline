@@ -124,7 +124,7 @@ def main():
 
     print('tempate length:', len(reference.seq))
     print('output length:', len(newseq))
-    print('number of mutations', len(mutations))
+    print('number of mutations:', len(mutations))
     print('number of snps:', snps)
     # number and length distribution of insertions and deletions (create pandas data.frame from 'stats'?)
 
