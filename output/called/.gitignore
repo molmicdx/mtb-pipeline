@@ -3,3 +3,5 @@
 *.log
 *.txt
 h37ra/
+deepvariant/*
+vqsr/
