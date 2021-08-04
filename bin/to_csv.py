@@ -10,7 +10,7 @@ parser.add_argument('-t', '--txt', action='store_true', help='input is text file
 args = parser.parse_args()
 
 vcf_reader = vcfpy.Reader(args.file)
-fieldnames = ['CHROM','POS','REF','ALT','TYPE','AD_REF','AD_ALT','DP','BAM_DP','GT','TRUE_POS','FALSE_POS','FALSE_NEG','TOOL','SAMPLE']
+fieldnames = ['CHROM','POS','REF','ALT','TYPE','AD_REF','AD_ALT','DP','BAM_DP','GT','ZYG','TRUE_POS','FALSE_POS','FALSE_NEG','TOOL','SAMPLE']
 writer = csv.DictWriter(args.outcsv, fieldnames=fieldnames)
 writer.writeheader()
 record = next(vcf_reader, None)
@@ -23,6 +23,7 @@ while record:
     for call in record.calls:
         true_variant['SAMPLE'] = call.sample
         true_variant['GT'] = call.data['GT']
+        true_variant['ZYG'] = 'hom'
         true_variant['TRUE_POS'] = 0
         true_variant['FALSE_POS'] = 0
         true_variant['FALSE_NEG'] = 1

@@ -34,6 +34,13 @@ def get_variant_from_vcf_record(record):
     for call in record.calls:
         variant['SAMPLE'] = call.sample
         variant['GT'] = str(call.data['GT'])
+        if len(variant['GT']) > 1:
+            if variant['GT'][0] != variant['GT'][-1]:
+                variant['ZYG'] = 'het'
+            else:
+                variant['ZYG'] = 'hom'
+        elif len(variant['GT']) == 1:
+            variant['ZYG'] = 'hom'
         try:
             variant['DP'] = str(call.data['DP'])
         except KeyError: # bcftools doesn't have DP yet
@@ -129,7 +136,7 @@ def write_variants(variants, fieldnames, file):
 def main():
     args = get_args()
     all_variants, tps, fps, fns = check(vcfpy.Reader(args.merged_vcf), csv.DictReader(args.true_variants), csv.DictReader(args.variant_cov))
-    fieldnames = ['CHROM','POS','REF','ALT','TYPE','QUAL','AD_REF','AD_ALT','DP','BAM_DP','GT','RK_DISCOSNP','TOOL','SAMPLE','TRUE_POS','FALSE_POS','FALSE_NEG']
+    fieldnames = ['CHROM','POS','REF','ALT','TYPE','QUAL','AD_REF','AD_ALT','DP','BAM_DP','GT','ZYG','RK_DISCOSNP','TOOL','SAMPLE','TRUE_POS','FALSE_POS','FALSE_NEG']
     write_variants(all_variants, fieldnames, args.called_variants)
 
 if __name__ == '__main__':

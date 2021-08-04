@@ -209,7 +209,7 @@ deduped, deduped_metrics, deduped_log = env.Command(
               '> ${TARGETS[-1]} 2>&1')
 )
 
-# ################### Filter Reads ####################
+# ################### Filter Reads, Get BAM Read Depths ####################
 
 mq_filtered_bam, indexed_bam = env.Command(
     target = ['$out/$deduped_out/${variant}_deduped_mq.bam',
@@ -219,6 +219,11 @@ mq_filtered_bam, indexed_bam = env.Command(
               '$samtools index ${TARGETS[0]}')
 )
 
+genome_cov = env.Command(
+    target = '$out/$variants_out/${variant}_deduped_mq10_genomecov.bed',
+    source = mq_filtered_bam,
+    action = '$bedtools genomecov -ibam $SOURCE -bga > $TARGET'
+)
 
 # ################## Validate BAM #####################
 
@@ -289,6 +294,23 @@ gatk_tbi, gatk_igv, gatk_igv_log = env.Command(
               '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
 )
 
+gatk_csv, gatk_bed = env.Command(
+    target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized.vcf.csv',
+              '$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized.vcf.csv.bed'],
+    source = gatk_normalized,
+    action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
+              'python $to_bed ${TARGETS[0]}')
+)
+gatk_cov_bed, gatk_cov_csv = env.Command(
+    target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_genomecov_intersect.bed',
+              '$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_cov.csv'],
+    source = [gatk_csv,
+              gatk_bed,
+              genome_cov],
+    action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -loj > ${TARGETS[0]}; '
+              'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]} $min_read_depth')
+)
+
 
 # ##################### bcftools #######################
 
@@ -296,7 +318,7 @@ pileup = env.Command(
     target = '$out/$called_out/$bcftools_out/${variant}_pileup.vcf',
     source = ['$reference',
               mq_filtered_bam],
-    action = ('$samtools mpileup -m $min_reads -F $allele_fraction -u -f ${SOURCES[0]} '
+    action = ('$samtools mpileup -m 3 -F $allele_fraction -u -f ${SOURCES[0]} '
               '-d $max_reads -A -B ${SOURCES[1]} -vo $TARGET 2> $log/$called_out/${variant}_pileup.log')
 )
 
@@ -346,6 +368,24 @@ bcftools_tbi, bcftools_igv, bcftools_igv_log = env.Command(
     action = ('tabix -f ${SOURCES[0]}; '
               'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
               '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
+)
+
+bcftools_csv, bcftools_bed = env.Command(
+    target = ['$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized.vcf.csv',
+              '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized.vcf.csv.bed'],
+    source = bcftools_normalized,
+    action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
+              'python $to_bed ${TARGETS[0]}')
+)
+
+bcftools_cov_bed, bcftools_cov_csv = env.Command(
+    target = ['$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_genomecov_intersect.bed',
+              '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_cov.csv'],
+    source = [bcftools_csv,
+              bcftools_bed,
+              genome_cov],
+    action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -loj > ${TARGETS[0]}; '
+              'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]} $min_read_depth')
 )
 
 
@@ -403,6 +443,24 @@ freebayes_tbi, freebayes_igv, freebayes_igv_log = env.Command(
               '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
 )
 
+freebayes_csv, freebayes_bed = env.Command(
+    target = ['$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized.vcf.csv',
+              '$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized.vcf.csv.bed'],
+    source = freebayes_normalized,
+    action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
+              'python $to_bed ${TARGETS[0]}')
+)
+
+freebayes_cov_bed, freebayes_cov_csv = env.Command(
+    target = ['$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized_genomecov_intersect.bed',
+              '$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized_cov.csv'],
+    source = [freebayes_csv,
+              freebayes_bed,
+              genome_cov],
+    action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -loj > ${TARGETS[0]}; '
+              'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]} $min_read_depth')
+)
+
 
 # ################# DeepVariant #################
 
@@ -457,6 +515,24 @@ deepvariant_tbi, deepvariant_igv, deepvariant_igv_log = env.Command(
     action = ('tabix -f ${SOURCES[0]}; '
               'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
               '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
+)
+
+deepvariant_csv, deepvariant_bed = env.Command(
+    target = ['$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized.vcf.csv',
+              '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized.vcf.csv.bed'],
+    source = deepvariant_pass,
+    action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
+              'python $to_bed ${TARGETS[0]}')
+)
+
+deepvariant_cov_bed, deepvariant_cov_csv = env.Command(
+    target = ['$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_genomecov_intersect.bed',
+              '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_cov.csv'],
+    source = [deepvariant_csv,
+              deepvariant_bed,
+              genome_cov],
+    action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -loj > ${TARGETS[0]}; '
+              'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]} $min_read_depth')
 )
 
 
@@ -561,6 +637,24 @@ lancet_tbi, lancet_igv, lancet_igv_log = env.Command(
               '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
 )
 
+lancet_csv, lancet_bed = env.Command(
+    target = ['$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_sorted.vcf.csv',
+              '$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_sorted.vcf.csv.bed'],
+    source = lancet_final_vcf,
+    action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
+              'python $to_bed ${TARGETS[0]}')
+)
+
+lancet_cov_bed, lancet_cov_csv = env.Command(
+    target = ['$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_sorted_genomecov_intersect.bed',
+              '$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_sorted_cov.csv'],
+    source = [lancet_csv,
+              lancet_bed,
+              genome_cov],
+    action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -loj > ${TARGETS[0]}; '
+              'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]} $min_read_depth')
+)
+
 
 # ################## DiscoSnp ###################
 
@@ -652,6 +746,24 @@ discosnp_tbi, discosnp_igv, discosnp_igv_log = env.Command(
               '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
 )
 
+discosnp_csv, discosnp_bed = env.Command(
+    target = ['$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted.vcf.csv',
+              '$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted.vcf.csv.bed'],
+    source = discosnp_pass_sorted,
+    action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
+              'python $to_bed ${TARGETS[0]}')
+)
+
+discosnp_cov_bed, discosnp_cov_csv = env.Command(
+    target = ['$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted_genomecov_intersect.bed',
+              '$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted_cov.csv'],
+    source = [discosnp_csv,
+              discosnp_bed,
+              genome_cov],
+    action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -loj > ${TARGETS[0]}; '
+              'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]} $min_read_depth')
+)
+
 
 # ################### VarDict ####################
 
@@ -699,25 +811,33 @@ vardict_tbi, vardict_igv, vardict_igv_log = env.Command(
               '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
 )
 
+vardict_csv, vardict_bed = env.Command(
+    target = ['$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized.vcf.csv',
+              '$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized.vcf.csv.bed'],
+    source = vardict_normalized,
+    action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
+              'python $to_bed ${TARGETS[0]}')
+)
+
+vardict_cov_bed, vardict_cov_csv = env.Command(
+    target = ['$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_genomecov_intersect.bed',
+              '$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_cov.csv'],
+    source = [vardict_csv,
+              vardict_bed,
+              genome_cov],
+    action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -loj > ${TARGETS[0]}; '
+              'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]} $min_read_depth')
+)
+
 
 # ############### Get Variant Coverage ################
 
-variant_csv = env.Command(
-    target = '$out/$variants_out/${variant}_normalized.vcf.csv',
+variant_csv, variant_bed = env.Command(
+    target = ['$out/$variants_out/${variant}_normalized.vcf.csv',
+              '$out/$variants_out/${variant}_normalized.vcf.csv.bed'],
     source = normalized_variant_vcf,
-    action = 'python $to_csv $SOURCE $TARGET'
-)
-
-variant_bed = env.Command(
-    target = '$out/$variants_out/${variant}_normalized.vcf.csv.bed',
-    source = variant_csv,
-    action = 'python $to_bed $SOURCE'
-)
-
-genome_cov = env.Command(
-    target = '$out/$variants_out/${variant}_deduped_mq10_genomecov.bed',
-    source = mq_filtered_bam,
-    action = '$bedtools genomecov -ibam $SOURCE -bga > $TARGET'
+    action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
+              'python $to_bed ${TARGETS[0]}')
 )
 
 variant_cov_bed, variant_cov_csv = env.Command(
@@ -742,8 +862,9 @@ gatk_cov_filtered = env.Command(
 gatk_calls = env.Command(
     target = '$out/$checked_out/$gatk_out/${variant}_${gatk_out}_normalized_dp${min_read_depth}_checked.csv',
     source = [gatk_cov_filtered,
-              variant_cov_csv],
-    action = 'python $check_call $gatk_out $variant ${SOURCES[0]} ${SOURCES[1]} $TARGET'
+              variant_cov_csv,
+              gatk_cov_csv],
+    action = 'python $check_call $gatk_out $variant ${SOURCES[0]} ${SOURCES[1]} ${SOURCES[2]} $TARGET'
 )
 
 '''
@@ -756,8 +877,9 @@ bcftools_cov_filtered = env.Command(
 bcftools_calls = env.Command(
     target = '$out/$checked_out/$bcftools_out/${variant}_${bcftools_out}_normalized_dp${min_read_depth}_checked.csv',
     source = [bcftools_normalized,
-              variant_cov_csv],
-    action = 'python $check_call $bcftools_out $variant ${SOURCES[0]} ${SOURCES[1]} $TARGET'
+              variant_cov_csv,
+              bcftools_cov_csv],
+    action = 'python $check_call $bcftools_out $variant ${SOURCES[0]} ${SOURCES[1]} ${SOURCES[2]} $TARGET'
 )
 
 
@@ -770,8 +892,9 @@ freebayes_cov_filtered = env.Command(
 freebayes_calls = env.Command(
     target = '$out/$checked_out/$freebayes_out/${variant}_${freebayes_out}_normalized_dp${min_read_depth}_checked.csv',
     source = [freebayes_cov_filtered,
-              variant_cov_csv],
-    action = 'python $check_call $freebayes_out $variant ${SOURCES[0]} ${SOURCES[1]} $TARGET'
+              variant_cov_csv,
+              freebayes_cov_csv],
+    action = 'python $check_call $freebayes_out $variant ${SOURCES[0]} ${SOURCES[1]} ${SOURCES[2]} $TARGET'
 )
 
 
@@ -784,8 +907,9 @@ deepvariant_cov_filtered = env.Command(
 deepvariant_calls = env.Command(
     target = '$out/$checked_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_PASS_dp${min_read_depth}_checked.csv',
     source = [deepvariant_cov_filtered,
-              variant_cov_csv],
-    action = 'python $check_call $deepvariant_out $variant ${SOURCES[0]} ${SOURCES[1]} $TARGET'
+              variant_cov_csv,
+              deepvariant_cov_csv],
+    action = 'python $check_call $deepvariant_out $variant ${SOURCES[0]} ${SOURCES[1]} ${SOURCES[2]} $TARGET'
 )
 
 
@@ -798,8 +922,9 @@ discosnp_cov_filtered = env.Command(
 discosnp_calls = env.Command(
     target = '$out/$checked_out/$discosnp_out/${variant}_${discosnp_out}-edit_normalized_PASSsorted_dp${min_read_depth}_checked.csv',
     source = [discosnp_cov_filtered,
-              variant_cov_csv],
-    action = 'python $check_call $discosnp_out $variant ${SOURCES[0]} ${SOURCES[1]} $TARGET'
+              variant_cov_csv,
+              discosnp_cov_csv],
+    action = 'python $check_call $discosnp_out $variant ${SOURCES[0]} ${SOURCES[1]} ${SOURCES[2]} $TARGET'
 )
 
 
@@ -812,8 +937,9 @@ lancet_cov_filtered = env.Command(
 lancet_calls = env.Command(
     target = '$out/$checked_out/$lancet_out/${variant}_${lancet_out}_normalized_dp${min_read_depth}_checked.csv',
     source = [lancet_cov_filtered,
-              variant_cov_csv],
-    action = 'python $check_call $lancet_out $variant ${SOURCES[0]} ${SOURCES[1]} $TARGET'
+              variant_cov_csv,
+              lancet_cov_csv],
+    action = 'python $check_call $lancet_out $variant ${SOURCES[0]} ${SOURCES[1]} ${SOURCES[2]} $TARGET'
 )
 
 
@@ -826,8 +952,9 @@ vardict_cov_filtered = env.Command(
 vardict_calls = env.Command(
     target = '$out/$checked_out/$vardict_out/${variant}_${vardict_out}_normalized_dp${min_read_depth}_checked.csv',
     source = [vardict_cov_filtered,
-              variant_cov_csv],
-    action = 'python $check_call $vardict_out $variant ${SOURCES[0]} ${SOURCES[1]} $TARGET'
+              variant_cov_csv,
+              vardict_cov_csv],
+    action = 'python $check_call $vardict_out $variant ${SOURCES[0]} ${SOURCES[1]} ${SOURCES[2]} $TARGET'
 )
 
 all_checked_csv = env.Command(
@@ -839,8 +966,8 @@ all_checked_csv = env.Command(
               discosnp_calls,
               lancet_calls,
               vardict_calls],
-    action = ('echo \'CHROM,POS,REF,ALT,TYPE,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG\' > $TARGET; '
-              'cat $SOURCES | sed \'/CHROM,POS,REF,ALT,TYPE,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG/d\' >> $TARGET')
+    action = ('echo \'CHROM,POS,REF,ALT,TYPE,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,ZYG,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG\' > $TARGET; '
+              'cat $SOURCES | sed \'/CHROM,POS,REF,ALT,TYPE,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,ZYG,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG/d\' >> $TARGET')
 )
 
 
