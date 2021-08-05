@@ -1,0 +1,19 @@
+Bootstrap: docker
+From: debian
+
+%help
+    This is to build and run bcftools-1.13
+
+%post
+    apt-get update -y && apt-get install -y --no-install-recommends git autoconf automake make gcc perl zlib1g-dev libbz2-dev liblzma-dev libcurl4-gnutls-dev libssl-dev libperl-dev libgsl0-dev
+    git config --global http.sslVerify false
+    git clone --recurse-submodules git://github.com/samtools/htslib.git
+    git clone git://github.com/samtools/bcftools.git
+    cd bcftools
+    autoheader
+    autoconf
+    ./configure
+    make install
+
+%runscript
+    exec bcftools
