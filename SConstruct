@@ -85,6 +85,7 @@ env = Environment(
     gatk_out = config.get('variant_calling', 'gatk_output'),
     bcftools_out = config.get('variant_calling', 'bcftools_output'),
     ploidy_file = config.get('variant_calling', 'bcftools_ploidy_file'),
+    bcftools_ann = config.get('variant_calling', 'bcftools_annotation'),
     freebayes_out = config.get('variant_calling', 'freebayes_output'),
     discosnp_out = config.get('variant_calling', 'discosnp_output'),
     deepvariant_out = config.get('variant_calling', 'deepvariant_output'),
@@ -117,7 +118,7 @@ env = Environment(
     cutadapt = '{} exec -B $cwd {} cutadapt'.format(singularity, cutadapt_img),
     bwa = '{} exec -B $cwd {} bwa mem'.format(singularity, bwa_img),
     samtools = '{} exec -B $cwd {} samtools'.format(singularity, samtools_img),
-    bcftools = '{} exec -B $cwd {} bcftools'.format(singularity, bcftools_img),
+    bcftools = '{} exec -B $cwd {}'.format(singularity, bcftools_img),
     bedtools = '{} exec -B $cwd {} bedtools'.format(singularity, bedtools_img),
     discosnp = '{} run --pwd $cwd -B $cwd {}'.format(singularity, discosnp_img),
     delly = '{} exec -B $cwd {} delly'.format(singularity, delly_img),
@@ -313,7 +314,7 @@ gatk_cov_bed, gatk_cov_csv = env.Command(
 
 
 # ##################### bcftools #######################
-
+'''
 pileup = env.Command(
     target = '$out/$called_out/$bcftools_out/${variant}_pileup.vcf',
     source = ['$reference',
@@ -333,7 +334,7 @@ bcftools_vcf = env.Command(
     source = pileup,
     action = '$bcftools call -mvO v -o $TARGET $SOURCE'
 )
-'''
+
 bcftools_g_normalized, bcftools_g_norm_log = env.Command(
     target = ['$out/$called_out/$gvcf_out/${variant}_${bcftools_out}_normalized.g.vcf',
               '$log/$called_out/$gvcf_out/${variant}_${bcftools_out}_normalized.g.log'],
@@ -343,6 +344,15 @@ bcftools_g_normalized, bcftools_g_norm_log = env.Command(
               '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
 )
 '''
+
+bcftools_vcf = env.Command(
+    target = '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}.vcf',
+    source = ['$reference',
+              mq_filtered_bam],
+    action = ('$bcftools bcftools mpileup -Ou -f ${SOURCES[0]} ${SOURCES[1]} -d $max_reads -a $bcftools_ann 2>$log/$called_out/$bcftools_out/${variant}_bcftools.log | '
+              'bcftools call -Ov -mv --ploidy-file $ploidy_file -o $TARGET  2>>$log/$called_out/$bcftools_out/${variant}_bcftools.log')
+)
+
 bcftools_normalized, bcftools_norm_log = env.Command(
     target = ['$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized.vcf',
               '$log/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized.log'],
@@ -536,50 +546,6 @@ deepvariant_cov_bed, deepvariant_cov_csv = env.Command(
 )
 
 
-# ################### delly #####################
-'''
-delly_bcf, delly_log  = env.Command(
-    target = ['$out/$called_out/$delly_out/${variant}_${delly_out}.bcf',
-              '$log/$called_out/$delly_out/${variant}_${delly_out}.log'],
-    source = ['$reference',
-              mq_filtered_bam],
-    action = '$delly call -g ${SOURCES[0]} -o ${TARGETS[0]} ${SOURCES[1]} > ${TARGETS[-1]} 2>&1'
-)
-
-delly_vcf = env.Command(
-    target = '$out/$called_out/$delly_out/${variant}_${delly_out}.vcf',
-    source = delly_bcf,
-    action = '$bcftools view $SOURCE -O v -o $TARGET'
-)
-
-delly_normalized, delly_norm_log = env.Command(
-    target = ['$out/$called_out/$delly_out/${variant}_${delly_out}_normalized.vcf',
-              '$log/$called_out/$delly_out/${variant}_${delly_out}_normalized.log'],
-    source = ['$reference',
-              delly_vcf],
-    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
-              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
-)
-
-delly_bgz = env.Command(
-    target = '$out/$bgz_out/$delly_out/${variant}_${delly_out}_normalized.vcf.gz',
-    source = delly_normalized,
-    action = 'bgzip < $SOURCE > $TARGET'
-)
-
-delly_tbi, delly_igv, delly_igv_log = env.Command(
-    target = ['$out/$bgz_out/$delly_out/${variant}_${delly_out}_normalized.vcf.gz.tbi',
-              '$out/$igv_out/$delly_out/${variant}_${delly_out}_igv.html',
-              '$log/$igv_out/$delly_out/${variant}_${delly_out}_igv.log'],
-    source = [delly_bgz,
-              '$reference',
-              mq_filtered_bam],
-    action = ('tabix -f ${SOURCES[0]}; '
-              'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
-              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
-)
-'''
-
 # ################### Lancet ####################
 
 lancet_vcf, lancet_log = env.Command(
@@ -613,7 +579,7 @@ lancet_final_vcf, lancet_sort_log = env.Command(
               '$log/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_sorted.log'],
     source = lancet_normalized,
     action = ('for sample in $$(zgrep -m 1 "^#CHROM" $SOURCE | cut -f10-); do '
-              '    $bcftools view -c 1 -Ov -s $$sample -o $out/$called_out/$lancet_out/$$sample\'_${lancet_out}_normalized.vcf\' $SOURCE; done; '
+              '    $bcftools bcftools view -c 1 -Ov -s $$sample -o $out/$called_out/$lancet_out/$$sample\'_${lancet_out}_normalized.vcf\' $SOURCE; done; '
               '$gatk SortVcf -I $out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized.vcf -O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1; '
               'rm $out/$called_out/$lancet_out/${ref_name}_${lancet_out}_normalized.vcf')
 )
@@ -711,7 +677,7 @@ discosnp_final_vcf = env.Command(
     target = '$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized.vcf',
     source = discosnp_formatted,
     action = ('for sample in $$(zgrep -m 1 "^#CHROM" $SOURCE | cut -f10-); do '
-              '    $bcftools view -c 1 -Ov -s $$sample -o $out/$called_out/$discosnp_out/$$sample\'_discosnp-edit_normalized.vcf\' $SOURCE; done; '
+              '    $bcftools bcftools view -c 1 -Ov -s $$sample -o $out/$called_out/$discosnp_out/$$sample\'_discosnp-edit_normalized.vcf\' $SOURCE; done; '
               'rm $out/$called_out/$discosnp_out/${ref_name}_discosnp-edit_normalized.vcf')
 )
 
@@ -856,7 +822,7 @@ variant_cov_bed, variant_cov_csv = env.Command(
 gatk_cov_filtered = env.Command(
     target = '$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_dp${min_read_depth}.vcf',
     source = gatk_normalized,
-    action = '$bcftools filter -i \'DP>=${min_read_depth}\' -o $TARGET $SOURCE'
+    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
 )
 
 gatk_calls = env.Command(
@@ -867,13 +833,13 @@ gatk_calls = env.Command(
     action = 'python $check_call $gatk_out $variant ${SOURCES[0]} ${SOURCES[1]} ${SOURCES[2]} $TARGET'
 )
 
-'''
+
 bcftools_cov_filtered = env.Command(
     target = '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_dp${min_read_depth}.vcf',
     source = bcftools_normalized,
-    action = '$bcftools filter -i \'DP>=${min_read_depth}\' -o $TARGET $SOURCE'
+    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
 )
-'''
+
 bcftools_calls = env.Command(
     target = '$out/$checked_out/$bcftools_out/${variant}_${bcftools_out}_normalized_dp${min_read_depth}_checked.csv',
     source = [bcftools_normalized,
@@ -886,7 +852,7 @@ bcftools_calls = env.Command(
 freebayes_cov_filtered = env.Command(
     target = '$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized_dp${min_read_depth}.vcf',
     source = freebayes_normalized,
-    action = '$bcftools filter -i \'DP>=${min_read_depth}\' -o $TARGET $SOURCE'
+    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
 )
 
 freebayes_calls = env.Command(
@@ -901,7 +867,7 @@ freebayes_calls = env.Command(
 deepvariant_cov_filtered = env.Command(
     target = '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_dp${min_read_depth}.vcf',
     source = deepvariant_pass,
-    action = '$bcftools filter -i \'DP>=${min_read_depth}\' -o $TARGET $SOURCE'
+    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
 )
 
 deepvariant_calls = env.Command(
@@ -916,7 +882,7 @@ deepvariant_calls = env.Command(
 discosnp_cov_filtered = env.Command(
     target = '$out/$called_out/$discosnp_out/${variant}_${discosnp_out}_normalized_dp${min_read_depth}.vcf',
     source = discosnp_pass_sorted,
-    action = '$bcftools filter -i \'DP>=${min_read_depth}\' -o $TARGET $SOURCE'
+    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
 )
 
 discosnp_calls = env.Command(
@@ -931,7 +897,7 @@ discosnp_calls = env.Command(
 lancet_cov_filtered = env.Command(
     target = '$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_dp${min_read_depth}.vcf',
     source = lancet_final_vcf,
-    action = '$bcftools filter -i \'DP>=${min_read_depth}\' -o $TARGET $SOURCE'
+    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
 )
 
 lancet_calls = env.Command(
@@ -946,7 +912,7 @@ lancet_calls = env.Command(
 vardict_cov_filtered = env.Command(
     target = '$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_dp${min_read_depth}.vcf',
     source = vardict_normalized,
-    action = '$bcftools filter -i \'DP>=${min_read_depth}\' -o $TARGET $SOURCE'
+    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
 )
 
 vardict_calls = env.Command(
