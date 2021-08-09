@@ -243,7 +243,7 @@ genome_cov = env.Command(
 
 gatk_gvcf, gatk_log = env.Command(
     target = ['$out/$called_out/$gvcf_out/${variant}_${gatk_out}.g.vcf',
-              '$log/$called_out/$gvcf/${variant}_${gatk_out}_haplotypecaller.log'],
+              '$log/$called_out/$gvcf_out/${variant}_${gatk_out}_haplotypecaller.log'],
     source = ['$reference',
               mq_filtered_bam,
               indexed_bam],
@@ -314,26 +314,15 @@ gatk_cov_bed, gatk_cov_csv = env.Command(
 
 
 # ##################### bcftools #######################
-'''
-pileup = env.Command(
-    target = '$out/$called_out/$bcftools_out/${variant}_pileup.vcf',
-    source = ['$reference',
-              mq_filtered_bam],
-    action = ('$samtools mpileup -m 3 -F $allele_fraction -u -f ${SOURCES[0]} '
-              '-d $max_reads -A -B ${SOURCES[1]} -vo $TARGET 2> $log/$called_out/${variant}_pileup.log')
-)
 
 bcftools_gvcf = env.Command(
     target = '$out/$called_out/$gvcf_out/${variant}_${bcftools_out}.g.vcf',
-    source = pileup,
-    action = '$bcftools call -g $min_reads -mO v -o $TARGET $SOURCE' 
+    source = ['$reference',
+              mq_filtered_bam],
+    action = ('$bcftools bcftools mpileup -Ou -f $SOURCES -d $max_reads -a $bcftools_ann 2>$log/$called_out/$gvcf_out/${variant}_${bcftools_out}.log | '
+              'bcftools call -Ov -m --gvcf 1 --ploidy-file $ploidy_file -o $TARGET 2>>$log/$called_out/$gvcf_out/${variant}_${bcftools_out}.log')
 )
 
-bcftools_vcf = env.Command(
-    target = '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}.vcf',
-    source = pileup,
-    action = '$bcftools call -mvO v -o $TARGET $SOURCE'
-)
 
 bcftools_g_normalized, bcftools_g_norm_log = env.Command(
     target = ['$out/$called_out/$gvcf_out/${variant}_${bcftools_out}_normalized.g.vcf',
@@ -343,14 +332,14 @@ bcftools_g_normalized, bcftools_g_norm_log = env.Command(
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
               '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
 )
-'''
+
 
 bcftools_vcf = env.Command(
     target = '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}.vcf',
     source = ['$reference',
               mq_filtered_bam],
-    action = ('$bcftools bcftools mpileup -Ou -f ${SOURCES[0]} ${SOURCES[1]} -d $max_reads -a $bcftools_ann 2>$log/$called_out/$bcftools_out/${variant}_bcftools.log | '
-              'bcftools call -Ov -mv --ploidy-file $ploidy_file -o $TARGET  2>>$log/$called_out/$bcftools_out/${variant}_bcftools.log')
+    action = ('$bcftools bcftools mpileup -Ou -f $SOURCES -d $max_reads -a $bcftools_ann 2>$log/$called_out/$bcftools_out/${variant}_${bcftools_out}.log | '
+              'bcftools call -Ov -mv --ploidy-file $ploidy_file -o $TARGET 2>>$log/$called_out/$bcftools_out/${variant}_${bcftools_out}.log')
 )
 
 bcftools_normalized, bcftools_norm_log = env.Command(
@@ -830,7 +819,7 @@ gatk_calls = env.Command(
     source = [gatk_cov_filtered,
               variant_cov_csv,
               gatk_cov_csv],
-    action = 'python $check_call $gatk_out $variant ${SOURCES[0]} ${SOURCES[1]} ${SOURCES[2]} $TARGET'
+    action = 'python $check_call $gatk_out $variant $SOURCES $TARGET'
 )
 
 
@@ -842,10 +831,10 @@ bcftools_cov_filtered = env.Command(
 
 bcftools_calls = env.Command(
     target = '$out/$checked_out/$bcftools_out/${variant}_${bcftools_out}_normalized_dp${min_read_depth}_checked.csv',
-    source = [bcftools_normalized,
+    source = [bcftools_cov_filtered,
               variant_cov_csv,
               bcftools_cov_csv],
-    action = 'python $check_call $bcftools_out $variant ${SOURCES[0]} ${SOURCES[1]} ${SOURCES[2]} $TARGET'
+    action = 'python $check_call $bcftools_out $variant $SOURCES $TARGET'
 )
 
 
@@ -860,7 +849,7 @@ freebayes_calls = env.Command(
     source = [freebayes_cov_filtered,
               variant_cov_csv,
               freebayes_cov_csv],
-    action = 'python $check_call $freebayes_out $variant ${SOURCES[0]} ${SOURCES[1]} ${SOURCES[2]} $TARGET'
+    action = 'python $check_call $freebayes_out $variant $SOURCES $TARGET'
 )
 
 
@@ -875,7 +864,7 @@ deepvariant_calls = env.Command(
     source = [deepvariant_cov_filtered,
               variant_cov_csv,
               deepvariant_cov_csv],
-    action = 'python $check_call $deepvariant_out $variant ${SOURCES[0]} ${SOURCES[1]} ${SOURCES[2]} $TARGET'
+    action = 'python $check_call $deepvariant_out $variant $SOURCES $TARGET'
 )
 
 
@@ -890,7 +879,7 @@ discosnp_calls = env.Command(
     source = [discosnp_cov_filtered,
               variant_cov_csv,
               discosnp_cov_csv],
-    action = 'python $check_call $discosnp_out $variant ${SOURCES[0]} ${SOURCES[1]} ${SOURCES[2]} $TARGET'
+    action = 'python $check_call $discosnp_out $variant $SOURCES $TARGET'
 )
 
 
@@ -905,7 +894,7 @@ lancet_calls = env.Command(
     source = [lancet_cov_filtered,
               variant_cov_csv,
               lancet_cov_csv],
-    action = 'python $check_call $lancet_out $variant ${SOURCES[0]} ${SOURCES[1]} ${SOURCES[2]} $TARGET'
+    action = 'python $check_call $lancet_out $variant $SOURCES $TARGET'
 )
 
 
@@ -920,7 +909,7 @@ vardict_calls = env.Command(
     source = [vardict_cov_filtered,
               variant_cov_csv,
               vardict_cov_csv],
-    action = 'python $check_call $vardict_out $variant ${SOURCES[0]} ${SOURCES[1]} ${SOURCES[2]} $TARGET'
+    action = 'python $check_call $vardict_out $variant $SOURCES $TARGET'
 )
 
 all_checked_csv = env.Command(
