@@ -1,0 +1,4 @@
+*.vcf*
+*.log
+*.txt
+discosnp/
