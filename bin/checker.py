@@ -95,11 +95,12 @@ def check(vcf_reader, true_variants_reader, vcf_cov_reader):
         if (vcf_record.CHROM, vcf_record.POS) <= (true_variant['CHROM'], int(true_variant['POS'])):
             if is_match(vcf_record, true_variant):
                 called['TRUE_POS'] = 1
+                called['TYPE'] = true_variant['TYPE']
                 all_variants.append(called)
                 tps.append(called)
                 true_variant = next(true_variants_reader, None)
             else:
-                called['FALSE_POS'] = 1
+                called['FALSE_POS'] = 1 # need fix for case when variant present in VCF but GT=0; filter out GT=0?
                 all_variants.append(called)
                 fps.append(called)
             vcf_record = next(vcf_reader, None)
