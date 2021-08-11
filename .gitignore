@@ -6,6 +6,9 @@ notebooks/*.csv
 notebooks/*.png
 notebooks/.ipynb_checkpoints
 *.DS_Store
+__pycache__/
+.sconsign.dblite
+issue*/
 bin/bin/
 bin/htslib-1.12
 bin/include/
@@ -14,6 +17,4 @@ bin/lib/
 bin/misc/
 bin/share/
 data/CP016972*
-issue*
 output/igv_snapshots/
-

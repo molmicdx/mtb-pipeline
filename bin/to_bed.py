@@ -11,8 +11,10 @@ with open(args.file, 'r') as mutation_csv:
     with open(bedfile, 'w') as outbed:
         for row in mutations[1:]:
             data = row.split(',')
-            chromStart = int(data[1]) - 1
+            chromStart = int(data[1]) - 1 #BED coordinates are 0-start, half-open
             size = abs(len(data[3].rstrip()) - len(data[2].rstrip())) #length of mutation
-            chromEnd = chromStart + size
+            if size == 0: #SNP size
+                size = 1
+            chromEnd = chromStart + size + 1
             outbed.write(data[0] + '\t' + str(chromStart) + '\t' + str(chromEnd) + '\n')
 

@@ -4,7 +4,6 @@ parser = argparse.ArgumentParser(description='Convert variants.py mutation list 
 
 parser.add_argument('file', help='variants.py txt file output of introduced mutations')
 parser.add_argument('sample', help='sample name')
-parser.add_argument('-c', '--csv', action='store_true', help='output csv for checker.py')
 args = parser.parse_args()
 
 with open(args.file, 'r') as mutation_list:
@@ -26,17 +25,3 @@ with open(outfile, 'w') as outvcf:
             TYPE = row.rstrip().split('\t')[-1]
             new_row = '\t'.join(first_5_cols) + '\t.\t.\tTY=' + TYPE + '\tGT\t1\n'
             outvcf.write(new_row)
-
-if args.csv:
-    csvfile = args.file + '.csv'
-    csv_header = 'CHROM,POS,REF,ALT,TYPE,' + args.sample + '\n'
-    with open(csvfile, 'w') as outcsv:
-        outcsv.write(csv_header)
-        for row in mutations:
-            # check that it is not an empty row
-            if len(row) > 1:
-                csv_row_fields = row.rstrip().split('\t')
-                csv_row_fields.pop(2)
-                csv_row = ','.join(csv_row_fields) + ',1\n'
-            outcsv.write(csv_row)
-
