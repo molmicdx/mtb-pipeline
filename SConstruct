@@ -643,7 +643,8 @@ discosnp_vcf, discosnp_log = env.Command(
     action = ('$discosnp $out -r ../${SOURCES[1]} -P $snp_per_bubble '
               '-b $disco_mode -k $kmer_size -c $coverage -T -l '
               '-G ../${SOURCES[0]} -p ${ref_name}_${variant} -u $max_threads > ${TARGETS[-1]} 2>&1; '
-              'mv $out/${ref_name}_${variant}* $out/$called_out/$discosnp_out/')
+              'mv $out/${ref_name}_${variant}* $out/$called_out/$discosnp_out/; '
+	      'sed -i \'s/INDEL_.*_path_[0-9]*/${accession}/g\' ${TARGETS[0]}') #temp fix for inexplicable VCF entry; may falsely inflate false positive calls
 )
 
 discosnp_normalized, discosnp_norm_log = env.Command(
