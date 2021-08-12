@@ -20,6 +20,7 @@ while record:
     true_variant['POS'] = str(record.POS)
     true_variant['REF'] = record.REF
     true_variant['ALT'] = ','.join([alt.value for alt in record.ALT])
+    true_variant['TYPE'] = record.INFO['TYPE'][0]
     for call in record.calls:
         true_variant['SAMPLE'] = call.sample
         true_variant['GT'] = call.data['GT']
@@ -27,11 +28,5 @@ while record:
         true_variant['TRUE_POS'] = 0
         true_variant['FALSE_POS'] = 0
         true_variant['FALSE_NEG'] = 1
-    if len(true_variant['REF']) == 1 and len(true_variant['ALT']) == 1:
-        true_variant['TYPE'] = 'SNP'
-    elif len(true_variant['REF']) > len(true_variant['ALT']):
-        true_variant['TYPE'] = 'DEL'
-    elif len(true_variant['REF']) < len(true_variant['ALT']):
-        true_variant['TYPE'] = 'INS'
     writer.writerow(true_variant)
     record = next(vcf_reader, None)
