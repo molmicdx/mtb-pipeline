@@ -19,7 +19,10 @@ def vcf_to_csv(vcf, csvout):
         true_variant['POS'] = str(record.POS)
         true_variant['REF'] = record.REF
         true_variant['ALT'] = ','.join([alt.value for alt in record.ALT])
-        true_variant['TYPE'] = record.INFO['TYPE'][0]
+        try:
+            true_variant['TYPE'] = record.INFO['TYPE'][0]
+        except KeyError:
+            true_variant['TYPE'] = None
         try:
             true_variant['INS_TYPE'] = record.INFO['INS_TYPE'][0]
         except KeyError:
