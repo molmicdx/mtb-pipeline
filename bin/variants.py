@@ -99,25 +99,25 @@ def main():
                 else:
                     insertion = []
                     # equal probability of random insertion sequence or inversion
-                    while len(insertion) < indel_len:
-                        if random() < 0.5:
+                    if random() < 0.5:
+                        while len(insertion) < indel_len:
                             insertion.append(ALPHABET[randint(0,3)])
-                            mutations.append([name, abspos + 1, '.', char_at, char_at + ''.join(insertion), 'INS', 'RDM'])
-                            indels.append(('random_ins', len(insertion)))
-                            num_rdm += 1
-                        else:
-                            for nt in reversed(newseq[relpos+1:relpos+1+indel_len]):
-                                if nt == 'A':
-                                    insertion.append('T')
-                                elif nt == 'T':
-                                    insertion.append('A')
-                                elif nt == 'C':
-                                    insertion.append('G')
-                                elif nt == 'G':
-                                    insertion.append('C')
-                            mutations.append([name, abspos + 1, '.', char_at, char_at + ''.join(insertion), 'INS', 'INV'])
-                            indels.append(('inversion', len(insertion)))
-                            num_inv += 1
+                        mutations.append([name, abspos + 1, '.', char_at, char_at + ''.join(insertion), 'INS', 'RDM'])
+                        indels.append(('random_ins', len(insertion)))
+                        num_rdm += 1
+                    else:
+                        for nt in reversed(newseq[relpos+1:relpos+1+indel_len]):
+                            if nt == 'A':
+                                insertion.append('T')
+                            elif nt == 'T':
+                                insertion.append('A')
+                            elif nt == 'C':
+                                insertion.append('G')
+                            elif nt == 'G':
+                                insertion.append('C')
+                        mutations.append([name, abspos + 1, '.', char_at, char_at + ''.join(insertion), 'INS', 'INV'])
+                        indels.append(('inversion', len(insertion)))
+                        num_inv += 1
 
                 newseq[relpos+1:relpos+1] = insertion
                 relpos += indel_len
