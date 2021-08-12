@@ -19,9 +19,9 @@ def get_variant(mutation):
     variant['ALT'] = mutation['ALT']
     variant['FORMAT'] = 'GT'
     variant[args.sample] = '1'
-    if mutation['TYPE'] == 'INS':
-        variant['INFO'] = 'TYPE=' + mutation['INS_TYPE']
-    else:
+    try:
+        variant['INFO'] = 'TYPE=' + mutation['TYPE'] + ';INS_TYPE=' + mutation['INS_TYPE']
+    except TypeError:
         variant['INFO'] = 'TYPE=' + mutation['TYPE']
     return variant
 
@@ -29,7 +29,7 @@ def main():
     args = parser.parse_args()
     with open(args.file, 'r', newline='') as infile:
         mutations_reader = csv.DictReader(infile, delimiter='\t')
-        vcf_header = '##fileformat=VCFv4.1\n##INFO=<ID=TYPE,Number=A,Type=String,Description="SNP, DUP, RDM, INV, or DEL">\n##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n##source=to_vcf.py\n'
+        vcf_header = '##fileformat=VCFv4.1\n##INFO=<ID=TYPE,Number=A,Type=String,Description="SNP, INS, or DEL">\n##INFO=<ID=INS_TYPE,Number=A,Type=String,Description="DUP, INV, or RDM">\n##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n##source=to_vcf.py\n'
         with open(args.file + '.vcf', 'w', newline='') as outvcf:
             outvcf.write(vcf_header)
             fieldnames = mutations_reader.fieldnames[:-2] + ['QUAL', 'FILTER', 'INFO', 'FORMAT', args.sample]
