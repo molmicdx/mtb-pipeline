@@ -98,6 +98,12 @@ def check(vcf_reader, true_variants_reader, vcf_cov_reader):
                 true_variant = next(true_variants_reader, None)
             else:
                 called['FALSE_POS'] = 1 # need fix for case when variant present in VCF but GT=0; filter out GT=0?
+                if len(called['REF']) == 1 and len(called['REF']) == len(called['ALT']):
+                    called['CALLED_TYPE'] = 'SNP'
+                elif len(called['REF']) < len(called['ALT']):
+                    called['CALLED_TYPE'] = 'INS'
+                elif len(called['REF']) > len(called['ALT']):
+                    called['CALLED_TYPE'] = 'DEL'
                 all_variants.append(called)
                 fps.append(called)
             vcf_record = next(vcf_reader, None)
