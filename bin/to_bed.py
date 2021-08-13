@@ -16,10 +16,9 @@ def get_variant_bed(mutation):
     variant_bed['chromEnd'] = variant_bed['chromStart'] + size + 1
     return variant_bed
 
-
 def write_to_bed(csv_in, bed_out):
     all_mutations = csv.DictReader(csv_in)
-    fieldnames = ['chrom', 'chromStart', 'chromEnd']
+    fieldnames = ['chrom', 'chromStart', 'chromEnd', 'genomeCov']
     bed_writer = csv.DictWriter(bed_out, fieldnames=fieldnames, delimiter='\t')
     mutation = next(all_mutations, None)
     while mutation:
@@ -34,20 +33,3 @@ def main():
 if __name__ == '__main__':
     sys.exit(main())
 
-
-'''
-args = parser.parse_args()
-
-bedfile = args.file + '.bed'
-with open(args.file, 'r') as mutation_csv:
-    mutations = mutation_csv.readlines()
-    with open(bedfile, 'w') as outbed:
-        for row in mutations[1:]:
-            data = row.split(',')
-            chromStart = int(data[1]) - 1 #BED coordinates are 0-start, half-open
-            size = abs(len(data[3].rstrip()) - len(data[2].rstrip())) #length of mutation
-            if size == 0: #SNP size
-                size = 1
-            chromEnd = chromStart + size + 1
-            outbed.write(data[0] + '\t' + str(chromStart) + '\t' + str(chromEnd) + '\n')
-'''
