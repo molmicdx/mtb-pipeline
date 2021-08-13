@@ -91,8 +91,8 @@ def check(vcf_reader, true_variants_reader, vcf_cov_reader):
             if is_match(vcf_record, true_variant):
                 called['TRUE_POS'] = 1
                 called['TYPE'] = true_variant['TYPE']
-                    if called['TYPE'] == 'INS':
-                        called['INS_TYPE'] = true_variant['INS_TYPE']
+                if called['TYPE'] == 'INS':
+                    called['INS_TYPE'] = true_variant['INS_TYPE']
                 all_variants.append(called)
                 tps.append(called)
                 true_variant = next(true_variants_reader, None)
