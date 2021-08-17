@@ -14,27 +14,33 @@ def vcf_to_csv(vcf, csvout):
     writer.writeheader()
     record = next(vcf_reader, None)
     while record:
-        true_variant = {}
-        true_variant['CHROM'] = record.CHROM
-        true_variant['POS'] = str(record.POS)
-        true_variant['REF'] = record.REF
-        true_variant['ALT'] = ','.join([alt.value for alt in record.ALT])
+        variant = {}
+        variant['CHROM'] = record.CHROM
+        variant['POS'] = str(record.POS)
+        variant['REF'] = record.REF
+        variant['ALT'] = ','.join([alt.value for alt in record.ALT])
         try:
-            true_variant['TYPE'] = record.INFO['TYPE'][0]
+            variant['TYPE'] = record.INFO['TYPE'][0]
         except KeyError:
-            true_variant['TYPE'] = None
+            size = len(variant['REF'].rstrip()) - len(variant['ALT'].rstrip())
+            if size == 0: # SNP size
+                variant['TYPE'] = 'SNP'
+            elif size > 0:
+                variant['TYPE'] = 'DEL'
+            elif size < 0:
+                variant['TYPE'] = 'INS'
         try:
-            true_variant['INS_TYPE'] = record.INFO['INS_TYPE'][0]
+            variant['INS_TYPE'] = record.INFO['INS_TYPE'][0]
         except KeyError:
-            true_variant['INS_TYPE'] = None
+            variant['INS_TYPE'] = None
         for call in record.calls:
-            true_variant['SAMPLE'] = call.sample
-            true_variant['GT'] = call.data['GT']
-            true_variant['ZYG'] = 'hom'
-            true_variant['TRUE_POS'] = 0
-            true_variant['FALSE_POS'] = 0
-            true_variant['FALSE_NEG'] = 1
-        writer.writerow(true_variant)
+            variant['SAMPLE'] = call.sample
+            variant['GT'] = call.data['GT']
+            variant['ZYG'] = 'hom'
+            variant['TRUE_POS'] = 0
+            variant['FALSE_POS'] = 0
+            variant['FALSE_NEG'] = 1
+        writer.writerow(variant)
         record = next(vcf_reader, None)
     return
 
