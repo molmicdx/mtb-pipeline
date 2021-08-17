@@ -13,7 +13,7 @@ def get_read_depths(var_bed_in):
     mutation_bed = next(var_reader, None)
     cov_along_mutation = {}
     while mutation_bed:
-        # cov dictionary key is (chromStart + 1): value is list of (read depth, number of bps) tuples.
+        # cov dictionary key is (chromStart + 1): value is list of tuples of (read depth, number of bps, left flank chromStart, right flank chromStart).
         # BED uses zero-based positions, VCF (and variants.py generated files) uses 1-based positions
         csv_POS = int(mutation_bed[1]) + 1
         read_depth = int(mutation_bed[-2])
