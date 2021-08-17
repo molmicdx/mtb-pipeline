@@ -5,8 +5,8 @@ import sys
 parser = argparse.ArgumentParser(description='Convert variants.py mutation list (csv) to bed file')
 parser.add_argument('file', type=argparse.FileType('r'), help='csv of variants.py mutation list')
 parser.add_argument('outbed', type=argparse.FileType('w'), help='name of output bed file')
-parser.add_argument('--split_mut', default='DEL', help='type of mutation to get flanking read depths of')
-parser.add_argument('--bp', default=5, help='number of flanking base pairs to get read depths for type of mutation specified in split_mut')
+parser.add_argument('--split_mut', default=None, help='type of mutation to get flanking read depths of')
+parser.add_argument('--bp', default=None, help='number of flanking base pairs to get read depths for type of mutation specified in split_mut')
 
 def get_variant_bed(mutation):
     variant_bed = {}
@@ -32,17 +32,27 @@ def split_call(variant_bed, bp):
 
 def write_to_bed(csv_in, bed_out, muttype, bp):
     all_mutations = csv.DictReader(csv_in)
-    fieldnames = ['chrom', 'chromStart', 'chromEnd', 'genomeCov', 'type']
+    fieldnames = ['chrom', 'chromStart', 'chromEnd', 'type', 'lflankpos', 'rflankpos']
     bed_writer = csv.DictWriter(bed_out, fieldnames=fieldnames, delimiter='\t')
     mutation = next(all_mutations, None)
     while mutation:
         variant_call = get_variant_bed(mutation)
         if variant_call['type'] == muttype:
             before_mut, after_mut = split_call(variant_call, bp)
+            before_mut['type'] = muttype + '_LFLANK'
+            before_mut['lflankpos'] = '.'
+            before_mut['rflankpos'] = '.'
+            after_mut['type'] = muttype + '_RFLANK'
+            after_mut['lflankpos'] = '.'
+            after_mut['rflankpos'] = '.'
+            variant_call['lflankpos'] = before_mut['chromStart']
+            variant_call['rflankpos'] = after_mut['chromStart']
             bed_writer.writerow(before_mut)
             bed_writer.writerow(variant_call)
             bed_writer.writerow(after_mut)
         else:
+            variant_call['lflankpos'] = '.'
+            variant_call['rflankpos'] = '.'
             bed_writer.writerow(variant_call)
         mutation = next(all_mutations, None)            
     return
