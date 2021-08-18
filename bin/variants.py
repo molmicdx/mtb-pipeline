@@ -54,6 +54,10 @@ def main():
     mutations = []
     snps = 0
     indels = []
+    num_dup = 0
+    num_rdm = 0
+    num_inv = 0
+    num_del = 0
 
     while True:
         # even distribution of variants
@@ -84,29 +88,39 @@ def main():
             if random() < settings.getfloat('variants', 'insertion_to_deletion'):
                 char_at = newseq[relpos]
                 # choose indel from forward or back based on availability
-                insertion = ''
                 if(relpos + 1 + indel_len > len(newseq) - 1):
                     continue
-
-                    # TODO: remove this?
-#                insordel = -1
-#                if(relpos + indel_len > len(newseq)):
-#                    insordel = 1
-#                elif(relpos - indel_len < 0):
-#                    insordel = 0
-#                else:
-#                    insordel = random()
-
-                #                if insordel > settings.getfloat('variants', 'insertion_to_deletion'):
-                insertion = newseq[relpos+1:relpos+1+indel_len]
-#                else:
-#                    insertion = newseq[relpos-indel_len:relpos]
+                # duplications
+                if random() < settings.getfloat('variants', 'duplication_to_other_ins'):
+                    insertion = newseq[relpos+1:relpos+1+indel_len]
+                    mutations.append([name, abspos + 1, '.', char_at, char_at + ''.join(insertion), 'INS', 'DUP'])
+                    indels.append(('duplication', len(insertion)))
+                    num_dup += 1
+                else:
+                    insertion = []
+                    # equal probability of random insertion sequence or inversion
+                    if random() < 0.5:
+                        while len(insertion) < indel_len:
+                            insertion.append(ALPHABET[randint(0,3)])
+                        mutations.append([name, abspos + 1, '.', char_at, char_at + ''.join(insertion), 'INS', 'RDM'])
+                        indels.append(('random_ins', len(insertion)))
+                        num_rdm += 1
+                    else:
+                        for nt in reversed(newseq[relpos+1:relpos+1+indel_len]):
+                            if nt == 'A':
+                                insertion.append('T')
+                            elif nt == 'T':
+                                insertion.append('A')
+                            elif nt == 'C':
+                                insertion.append('G')
+                            elif nt == 'G':
+                                insertion.append('C')
+                        mutations.append([name, abspos + 1, '.', char_at, char_at + ''.join(insertion), 'INS', 'INV'])
+                        indels.append(('inversion', len(insertion)))
+                        num_inv += 1
 
                 newseq[relpos+1:relpos+1] = insertion
-
-                mutations.append([name, abspos + 1, '.', char_at, char_at + ''.join(insertion), 'INS'])
                 relpos += indel_len
-                indels.append(('insertion', len(insertion)))
             else:
                 char_at = newseq[relpos]
                 removed = newseq[relpos+1:relpos + 1 + indel_len]
@@ -114,18 +128,23 @@ def main():
                 mutations.append([name, abspos + 1, '.', char_at + ''.join(removed), char_at, 'DEL'])
                 abspos += indel_len
                 indels.append(('deletion', len(removed)))
-
+                num_del += 1
     args.output.write('>' + reference.id + '\n')
     args.output.write(''.join(newseq))
 
     writer = csv.writer(args.mutations, delimiter='\t')
-    writer.writerow(['#CHROM', 'POS', 'ID', 'REF', 'ALT', 'TYPE'])
+    writer.writerow(['#CHROM', 'POS', 'ID', 'REF', 'ALT', 'TYPE', 'INS_TYPE'])
     writer.writerows(mutations)
 
-    print('tempate length:', len(reference.seq))
-    print('output length:', len(newseq))
-    print('number of mutations:', len(mutations))
-    print('number of snps:', snps)
+    print('Template length:', len(reference.seq))
+    print('Output genome length:', len(newseq))
+    print('Number of mutations (SNP + indels):', len(mutations))
+    print('Number of SNP:', snps)
+    print('Number of indels:', len(indels))
+    print('Number of duplications (DUP):', num_dup)
+    print('Number of random-sequence insertions (RDM):', num_rdm)
+    print('Number of inversions (INV):', num_inv)
+    print('Number of deletions (DEL):', num_del)
     # number and length distribution of insertions and deletions (create pandas data.frame from 'stats'?)
 
 if __name__ == '__main__':

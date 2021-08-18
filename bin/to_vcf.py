@@ -1,27 +1,45 @@
 import argparse
+import csv
+import sys
 
 parser = argparse.ArgumentParser(description='Convert variants.py mutation list to vcf tolerated by gatk v4.0.11.0')
-
 parser.add_argument('file', help='variants.py txt file output of introduced mutations')
 parser.add_argument('sample', help='sample name')
-args = parser.parse_args()
 
-with open(args.file, 'r') as mutation_list:
-    header_fields = mutation_list.readline().split('\t')
-    header = '\t'.join(header_fields[:-1])
-    new_header = header.upper().rstrip() + '\tQUAL\tFILTER\tINFO\tFORMAT\t' + args.sample + '\n'
-    if new_header[0] != '#':
-        new_header = '#' + new_header        
-    mutations = mutation_list.readlines()
 
-outfile = args.file + '.vcf'
-with open(outfile, 'w') as outvcf:
-    outvcf.write('##fileformat=VCFv4.1\n##INFO=<ID=TY,Number=A,Type=String,Description="SNP, INS, or DEL">\n##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n')
-    outvcf.write(new_header)
-    for row in mutations:
-        # check that it is not an empty row
-        if len(row) > 1:
-            first_5_cols = row.rstrip().split('\t')[:5]
-            TYPE = row.rstrip().split('\t')[-1]
-            new_row = '\t'.join(first_5_cols) + '\t.\t.\tTY=' + TYPE + '\tGT\t1\n'
-            outvcf.write(new_row)
+def get_variant(mutation):
+    args = parser.parse_args()
+    variant = {}
+    variant['#CHROM'] = mutation['#CHROM']
+    variant['POS'] = mutation['POS']
+    variant['ID'] = '.'
+    variant['QUAL'] = '.'
+    variant['FILTER'] = '.'
+    variant['REF'] = mutation['REF']
+    variant['ALT'] = mutation['ALT']
+    variant['FORMAT'] = 'GT'
+    variant[args.sample] = '1'
+    try:
+        variant['INFO'] = 'TYPE=' + mutation['TYPE'] + ';INS_TYPE=' + mutation['INS_TYPE']
+    except TypeError:
+        variant['INFO'] = 'TYPE=' + mutation['TYPE']
+    return variant
+
+def main():
+    args = parser.parse_args()
+    with open(args.file, 'r', newline='') as infile:
+        mutations_reader = csv.DictReader(infile, delimiter='\t')
+        vcf_header = '##fileformat=VCFv4.1\n##INFO=<ID=TYPE,Number=A,Type=String,Description="SNP, INS, or DEL">\n##INFO=<ID=INS_TYPE,Number=A,Type=String,Description="DUP, INV, or RDM">\n##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n##source=to_vcf.py\n'
+        with open(args.file + '.vcf', 'w', newline='') as outvcf:
+            outvcf.write(vcf_header)
+            fieldnames = mutations_reader.fieldnames[:-2] + ['QUAL', 'FILTER', 'INFO', 'FORMAT', args.sample]
+            variant_writer = csv.DictWriter(outvcf, fieldnames=fieldnames, delimiter='\t')
+            variant_writer.writeheader()
+            mutation = next(mutations_reader, None)
+            while mutation:
+                variant_writer.writerow(get_variant(mutation))
+                mutation = next(mutations_reader, None)
+
+if __name__ == '__main__':
+    sys.exit(main())
+
