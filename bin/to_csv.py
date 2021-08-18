@@ -20,7 +20,7 @@ def vcf_to_csv(vcf, csvout):
         variant['REF'] = record.REF
         variant['ALT'] = ','.join([alt.value for alt in record.ALT])
         try:
-            variant['TYPE'] = ''.join(record.INFO['TYPE'])
+            variant['TYPE'] = ''.join(record.INFO['TYPE'])[:3].upper() # attempt to standardize TYPEs reported by different variant callers
         except KeyError:
             size = len(variant['REF'].rstrip()) - len(variant['ALT'].rstrip())
             if size == 0: # SNP size
@@ -35,8 +35,12 @@ def vcf_to_csv(vcf, csvout):
             variant['INS_TYPE'] = None
         for call in record.calls:
             variant['SAMPLE'] = call.sample
-            variant['GT'] = call.data['GT']
-            variant['ZYG'] = 'hom'
+            variant['GT'] = str(call.data['GT'])
+            if len(variant['GT']) > 1:
+                if variant['GT'][0] != variant['GT'][-1]:
+                    variant['ZYG'] = 'het'
+                else:
+                    variant['ZYG'] = 'hom'
             variant['TRUE_POS'] = 0
             variant['FALSE_POS'] = 0
             variant['FALSE_NEG'] = 1
