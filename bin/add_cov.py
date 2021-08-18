@@ -50,6 +50,11 @@ def get_variants_bam_dp(cov_along_mutation, var_bed_in):
                 left_bam_dp = calculate_bam_dp(cov_along_mutation[int(lflankpos) + 1])
                 right_bam_dp = calculate_bam_dp(cov_along_mutation[int(rflankpos) + 1])
                 variants_bam_dp[pos] = round((left_bam_dp + right_bam_dp)/2)
+                # troubleshooting lancet edge case where lflankpos=1047759 is also chromStart for another DEL
+                # resulting in extraneous values provided to calculate_bam_dp(). Not fixed yet.
+                #if pos == 1047765:
+                    #print(cov_along_mutation[int(lflankpos) + 1])
+                    #print(lflankpos, rflankpos, left_bam_dp, right_bam_dp)
                 break
     return variants_bam_dp
 
