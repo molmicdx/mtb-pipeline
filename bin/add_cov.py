@@ -39,14 +39,18 @@ def calculate_bam_dp(read_depth_list):
 def get_variants_bam_dp(cov_along_mutation, var_bed_in):
     variants_bam_dp = {}
     for pos in cov_along_mutation.keys():
-        lflankpos = cov_along_mutation[pos][0][2]
-        rflankpos = cov_along_mutation[pos][0][3]
-        if lflankpos != '.' and rflankpos != '.':
-            left_bam_dp = calculate_bam_dp(cov_along_mutation[int(lflankpos) + 1])
-            right_bam_dp = calculate_bam_dp(cov_along_mutation[int(rflankpos) + 1])
-            variants_bam_dp[pos] = round((left_bam_dp + right_bam_dp)/2)
-        else:
-            variants_bam_dp[pos] = calculate_bam_dp(cov_along_mutation[pos])
+        counter = 0
+        while counter < len(cov_along_mutation[pos]):
+            if (cov_along_mutation[pos][counter][2] == '.') or (cov_along_mutation[pos][counter][3] == '.'):
+                variants_bam_dp[pos] = calculate_bam_dp(cov_along_mutation[pos])
+                counter += 1
+            else:
+                lflankpos = cov_along_mutation[pos][counter][2]
+                rflankpos = cov_along_mutation[pos][counter][3]
+                left_bam_dp = calculate_bam_dp(cov_along_mutation[int(lflankpos) + 1])
+                right_bam_dp = calculate_bam_dp(cov_along_mutation[int(rflankpos) + 1])
+                variants_bam_dp[pos] = round((left_bam_dp + right_bam_dp)/2)
+                break
     return variants_bam_dp
 
 def write_cov_to_csv(var_bam_dp, var_csv_in, cov_csv_out):
