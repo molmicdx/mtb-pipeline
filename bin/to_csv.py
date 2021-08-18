@@ -20,7 +20,7 @@ def vcf_to_csv(vcf, csvout):
         variant['REF'] = record.REF
         variant['ALT'] = ','.join([alt.value for alt in record.ALT])
         try:
-            variant['TYPE'] = record.INFO['TYPE'][0]
+            variant['TYPE'] = ''.join(record.INFO['TYPE'])
         except KeyError:
             size = len(variant['REF'].rstrip()) - len(variant['ALT'].rstrip())
             if size == 0: # SNP size
