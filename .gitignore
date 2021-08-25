@@ -18,3 +18,5 @@ bin/misc/
 bin/share/
 data/CP016972*
 output/igv_snapshots/
+test*
+xsv

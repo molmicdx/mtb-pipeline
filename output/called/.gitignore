@@ -3,5 +3,12 @@
 *.log
 *.txt
 h37ra/
+bcftools/*
 deepvariant/*
+discosnp/*
+freebayes/*
+gatk/*
+lancet/*
+vardict/*
 vqsr/
+
