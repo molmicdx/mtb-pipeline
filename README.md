@@ -6,13 +6,13 @@
 
 2. Activate the virtual environment: `source mtb_amr-env/bin/activate`.
 
-### Configure the Scons pipeline
+### Configure the SCons pipeline
 
-1. Configure synthetic variant parameters by editing the values in `configs/variants_settings.conf`. These settings will be logged in `logs/variants/` once the pipeline is initiated.
+1. Configure synthetic variant parameters by editing the values in `configs/variants_settings.conf`. These settings will be logged in `logs/variants/` once the pipeline is initiated. If running the pipeline on sequenced reads (not synthetically generated variants), please see the section below on *Calling sequenced variants*
 
 2. Configure other parameters, including variant name, by editing the values in `configs/settings.conf`. 
 
-### Run the Scons pipeline
+### Run the SCons pipeline
 
 1. Dry run: `scons -n`.
 
@@ -20,8 +20,17 @@
 
 3. Debug run: `scons --debug=explain`
 
-4. Variant callers included in the current pipeline: GATK HaplotypeCaller, bcftools, FreeBayes, DiscoSnp, DeepVariant, VarDict, delly, Lancet.
+4. Variant callers included in the current pipeline: GATK HaplotypeCaller, bcftools, FreeBayes, DiscoSnp, DeepVariant, VarDict, Lancet.
 
+### Calling sequenced variants
+
+1. Add FASTQ files to the `sequenced/output/reads` directory.
+
+2. Configure pipeline parameters, including variant name, by editing the values in `sequenced/configs/settings.conf`.
+
+3. Run the pipeline as described in *Run the SCons pipeline*. 
+
+4. Checking variant calls is not yet implemented.
 
 ### The pipeline in bash
 
