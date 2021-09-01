@@ -62,6 +62,9 @@ env = Environment(
     ref_name = config.get('DEFAULT', 'reference_name'),
     accession = config.get('DEFAULT', 'reference_accession'),
     variant = config.get('sequenced', 'variant_name'),
+    to_csv = config.get('variant_simulation', 'to_csv_script'),
+    to_bed = config.get('variant_simulation', 'to_bed_script'),
+    add_cov = config.get('variant_simulation', 'add_cov_script'),
     min_read_q = config.get('reads_preprocessing', 'min_read_quality'),
     min_read_len = config.get('reads_preprocessing', 'min_read_length'),
     adaptors = config.get('reads_preprocessing', 'adaptors_fa'),
@@ -97,6 +100,11 @@ env = Environment(
     rg_pl = config.get('read_mapping', 'read_group_PL'),
     rg_pu = config.get('read_mapping', 'read_group_PU'),
     mapq = config.get('read_mapping', 'min_mapq'),
+    checked_out = config.get('output', 'checked'),
+    check_call = config.get('report', 'checker_script'),
+    min_read_depth = config.get('report', 'filter_read_depth'),
+    mutation_to_flank = config.get('report', 'ignore_cov_on_mutation'), 
+    num_flanking_bp = config.get('report', 'num_flanking_bp_to_use'),
     bgz_out = config.get('output', 'bgzipped'),
     igv_out = config.get('output', 'igv_reports'),
     igv_info = config.get('report', 'igv_info'),
@@ -732,3 +740,142 @@ vardict_cov_bed, vardict_cov_csv = env.Command(
 )
 
 
+# ############### Get Variant Coverage ################
+
+variant_formatted_csv, variant_bed = env.Command(
+    target = ['$out/$variants_out/${variant}_formatted.csv',
+              '$out/$variants_out/${variant}.bed'],
+    source = '$out/$variants_out/${variant}.csv',
+    action = ('python $to_csv $SOURCE ${TARGETS[0]} --formatcsv; '
+              'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
+)
+
+variant_cov_bed, variant_cov_csv = env.Command(
+    target = ['$out/$variants_out/${variant}_genomecov_intersect.bed',
+              '$out/$variants_out/${variant}_cov.csv'],
+    source = [variant_formatted_csv,
+              variant_bed,
+              genome_cov],
+    action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -wo > ${TARGETS[0]}; '
+              'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
+)
+
+
+# ################### Check Calls ######################
+
+gatk_cov_filtered = env.Command(
+    target = '$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_dp${min_read_depth}.vcf',
+    source = gatk_normalized,
+    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
+)
+
+gatk_calls = env.Command(
+    target = '$out/$checked_out/$gatk_out/${variant}_${gatk_out}_normalized_dp${min_read_depth}_checked.csv',
+    source = [gatk_cov_filtered,
+              variant_cov_csv,
+              gatk_cov_csv],
+    action = 'python $check_call $gatk_out $variant $SOURCES $TARGET'
+)
+
+
+bcftools_cov_filtered = env.Command(
+    target = '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_dp${min_read_depth}.vcf',
+    source = bcftools_normalized,
+    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
+)
+
+bcftools_calls = env.Command(
+    target = '$out/$checked_out/$bcftools_out/${variant}_${bcftools_out}_normalized_dp${min_read_depth}_checked.csv',
+    source = [bcftools_cov_filtered,
+              variant_cov_csv,
+              bcftools_cov_csv],
+    action = 'python $check_call $bcftools_out $variant $SOURCES $TARGET'
+)
+
+
+freebayes_cov_filtered = env.Command(
+    target = '$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized_dp${min_read_depth}.vcf',
+    source = freebayes_normalized,
+    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
+)
+
+freebayes_calls = env.Command(
+    target = '$out/$checked_out/$freebayes_out/${variant}_${freebayes_out}_normalized_dp${min_read_depth}_checked.csv',
+    source = [freebayes_cov_filtered,
+              variant_cov_csv,
+              freebayes_cov_csv],
+    action = 'python $check_call $freebayes_out $variant $SOURCES $TARGET'
+)
+
+
+deepvariant_cov_filtered = env.Command(
+    target = '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_dp${min_read_depth}.vcf',
+    source = deepvariant_pass,
+    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
+)
+
+deepvariant_calls = env.Command(
+    target = '$out/$checked_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_PASS_dp${min_read_depth}_checked.csv',
+    source = [deepvariant_cov_filtered,
+              variant_cov_csv,
+              deepvariant_cov_csv],
+    action = 'python $check_call $deepvariant_out $variant $SOURCES $TARGET'
+)
+
+
+discosnp_cov_filtered = env.Command(
+    target = '$out/$called_out/$discosnp_out/${variant}_${discosnp_out}_normalized_dp${min_read_depth}.vcf',
+    source = discosnp_pass_sorted,
+    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
+)
+
+discosnp_calls = env.Command(
+    target = '$out/$checked_out/$discosnp_out/${variant}_${discosnp_out}-edit_normalized_PASSsorted_dp${min_read_depth}_checked.csv',
+    source = [discosnp_cov_filtered,
+              variant_cov_csv,
+              discosnp_cov_csv],
+    action = 'python $check_call $discosnp_out $variant $SOURCES $TARGET'
+)
+
+
+lancet_cov_filtered = env.Command(
+    target = '$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_dp${min_read_depth}.vcf',
+    source = lancet_final_vcf,
+    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
+)
+
+lancet_calls = env.Command(
+    target = '$out/$checked_out/$lancet_out/${variant}_${lancet_out}_normalized_dp${min_read_depth}_checked.csv',
+    source = [lancet_cov_filtered,
+              variant_cov_csv,
+              lancet_cov_csv],
+    action = 'python $check_call $lancet_out $variant $SOURCES $TARGET'
+)
+
+
+vardict_cov_filtered = env.Command(
+    target = '$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_dp${min_read_depth}.vcf',
+    source = vardict_normalized,
+    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
+)
+
+vardict_calls = env.Command(
+    target = '$out/$checked_out/$vardict_out/${variant}_${vardict_out}_normalized_dp${min_read_depth}_checked.csv',
+    source = [vardict_cov_filtered,
+              variant_cov_csv,
+              vardict_cov_csv],
+    action = 'python $check_call $vardict_out $variant $SOURCES $TARGET'
+)
+
+all_checked_csv = env.Command(
+    target = '$out/$checked_out/${variant}_alltools_normalized_dp${min_read_depth}_checked.csv',
+    source = [gatk_calls,
+              bcftools_calls,
+              freebayes_calls,
+              deepvariant_calls,
+              discosnp_calls,
+              lancet_calls,
+              vardict_calls],
+    action = ('echo \'CHROM,POS,REF,ALT,TYPE,INS_TYPE,LEN,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,ZYG,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG\' > $TARGET; '
+              'cat $SOURCES | sed \'/CHROM,POS,REF,ALT,TYPE,INS_TYPE,LEN,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,ZYG,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG/d\' >> $TARGET')
+)

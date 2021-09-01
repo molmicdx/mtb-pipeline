@@ -28,7 +28,7 @@
 
 2. Configure pipeline parameters, including variant name, by editing the values in `sequenced/configs/settings.conf`.
 
-3. Run the pipeline as described in *Run the SCons pipeline*. 
+3. Run the pipeline from within the `sequenced` directory, as described in *Run the SCons pipeline*. 
 
 4. Checking variant calls is not yet implemented.
 
