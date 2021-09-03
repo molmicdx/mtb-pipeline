@@ -46,17 +46,20 @@ def add_specific_mutations(mutations_csv, ref_genome, mutations_out, var_genome_
     mutations_reader = csv.DictReader(mutations_csv)
     reference = next(fastalite(ref_genome))
     ref_seq = list(reference.seq)
-    print(len(ref_seq))
     new_seq = []
     name = reference.id
     fieldnames = ['#CHROM', 'POS', 'ID', 'REF', 'ALT', 'TYPE', 'INS_TYPE']
     writer = csv.DictWriter(mutations_out, fieldnames=fieldnames, delimiter='\t')
     writer.writeheader()
+    snps = 0
+    num_del = 0
+    num_dup = 0
+    num_rdm = 0
+    num_inv = 0
     mutation = next(mutations_reader, None)
     start_pos = 0
     while mutation:
         end_pos = int(mutation['POS'])
-        print(start_pos, end_pos)
         new_seq += ref_seq[start_pos:end_pos - 1]
         new_mutation = {}
         new_mutation['#CHROM'] = name
@@ -66,6 +69,7 @@ def add_specific_mutations(mutations_csv, ref_genome, mutations_out, var_genome_
         new_mutation['INS_TYPE'] = mutation['INS_TYPE']
         #intro SNP into new_seq
         if new_mutation['TYPE'] == 'SNP':
+            snps += 1
             new_mutation['REF'] = ref_seq[end_pos - 1]
             if new_mutation['REF'] == mutation['REF']:
                 new_mutation['ALT'] = mutation['ALT']
@@ -74,6 +78,7 @@ def add_specific_mutations(mutations_csv, ref_genome, mutations_out, var_genome_
             start_pos = end_pos
         #intro DEL into newseq
         elif new_mutation['TYPE'] == 'DEL':
+            num_del += 1
             new_mutation['REF'] = ''.join(ref_seq[end_pos - 1:(end_pos - 1 + len(mutation['REF']))])
             new_mutation['ALT'] = ref_seq[end_pos - 1]
             start_pos = end_pos - 1 + len(mutation['REF'])
@@ -81,10 +86,13 @@ def add_specific_mutations(mutations_csv, ref_genome, mutations_out, var_genome_
         elif new_mutation['TYPE'] == 'INS':
             new_mutation['REF'] = ref_seq[end_pos - 1]
             if new_mutation['INS_TYPE'] == 'RDM':
+                num_rdm += 1
                 new_mutation['ALT'] = mutation['ALT']
             elif new_mutation['INS_TYPE'] == 'DUP':
+                num_dup += 1
                 new_mutation['ALT'] = ''.join(ref_seq[end_pos - 1:(end_pos - 1 + len(mutation['ALT']))])
             elif new_mutation['INS_TYPE'] == 'INV':
+                num_inv += 1
                 complemented = []
                 for nt in ref_seq[end_pos:(end_pos + len(mutation['ALT']) - 1)]:
                     if nt == 'A':
@@ -103,7 +111,16 @@ def add_specific_mutations(mutations_csv, ref_genome, mutations_out, var_genome_
     new_seq += ref_seq[start_pos:len(ref_seq)]
     var_genome_fa.write('>'+ name + ' variant\n')
     var_genome_fa.write(''.join(new_seq))
-    print(len(''.join(new_seq)))
+    print('Template name:', name)
+    print('Template length:', len(ref_seq))
+    print('Output genome length:', len(''.join(new_seq)))
+    print('Number of SNP:', snps)
+    print('Number of indels:', (num_del + num_dup + num_rdm + num_inv))
+    print('Number of duplications (DUP):', num_dup)
+    print('Number of random-sequence insertions (RDM):', num_rdm)
+    print('Number of inversions (INV):', num_inv)
+    print('Number of deletions (DEL):', num_del)
+    
     return
 
 
