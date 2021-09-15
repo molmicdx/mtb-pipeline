@@ -21,11 +21,12 @@ ALPHABET="ACGT"
 def get_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('reference', type=Opener('r'),
-                        help='reference genome to intoduce mutations into')
+                        help='reference genome to introduce mutations into')
     parser.add_argument('--settings',
-                        default="variants_settings.conf",
+                        default="configs/variants_settings.conf",
                         help="Settings file")
     parser.add_argument('--evendist', action='store_true', help='evenly distribute variants')
+    parser.add_argument('--inputmutations', type=argparse.FileType('r'), default=None, help='csv of mutations to introduce')
     parser.add_argument('mutations', type=argparse.FileType('w'),
                         help='file with list of introduced mutations')
     parser.add_argument('output', type=argparse.FileType('w'),
@@ -41,14 +42,94 @@ def add_dist(density):
     return randint(1, 1/density*2+1)
 
 
-def main():
-    args = get_args()
+def add_specific_mutations(mutations_csv, ref_genome, mutations_out, var_genome_fa):
+    mutations_reader = csv.DictReader(mutations_csv)
+    reference = next(fastalite(ref_genome))
+    ref_seq = list(reference.seq)
+    new_seq = []
+    name = reference.id
+    fieldnames = ['#CHROM', 'POS', 'ID', 'REF', 'ALT', 'TYPE', 'INS_TYPE']
+    writer = csv.DictWriter(mutations_out, fieldnames=fieldnames, delimiter='\t')
+    writer.writeheader()
+    snps = 0
+    num_del = 0
+    num_dup = 0
+    num_rdm = 0
+    num_inv = 0
+    mutation = next(mutations_reader, None)
+    start_pos = 0
+    while mutation:
+        end_pos = int(mutation['POS'])
+        new_seq += ref_seq[start_pos:end_pos - 1]
+        new_mutation = {}
+        new_mutation['#CHROM'] = name
+        new_mutation['POS'] = mutation['POS'] # this may change after identification of core genome set.
+        new_mutation['ID'] = '.'
+        new_mutation['TYPE'] = mutation['TYPE']
+        new_mutation['INS_TYPE'] = mutation['INS_TYPE']
+        #intro SNP into new_seq
+        if new_mutation['TYPE'] == 'SNP':
+            snps += 1
+            new_mutation['REF'] = ref_seq[end_pos - 1]
+            if new_mutation['REF'] == mutation['REF']:
+                new_mutation['ALT'] = mutation['ALT']
+            else:
+                new_mutation['ALT'] = choice(ALPHABET.replace(ref_seq[end_pos - 1], ''))
+            start_pos = end_pos
+        #intro DEL into newseq
+        elif new_mutation['TYPE'] == 'DEL':
+            num_del += 1
+            new_mutation['REF'] = ''.join(ref_seq[end_pos - 1:(end_pos - 1 + len(mutation['REF']))])
+            new_mutation['ALT'] = ref_seq[end_pos - 1]
+            start_pos = end_pos - 1 + len(mutation['REF'])
+        #intro INS into newseq
+        elif new_mutation['TYPE'] == 'INS':
+            new_mutation['REF'] = ref_seq[end_pos - 1]
+            if new_mutation['INS_TYPE'] == 'RDM':
+                num_rdm += 1
+                new_mutation['ALT'] = mutation['ALT']
+            elif new_mutation['INS_TYPE'] == 'DUP':
+                num_dup += 1
+                new_mutation['ALT'] = ''.join(ref_seq[end_pos - 1:(end_pos - 1 + len(mutation['ALT']))])
+            elif new_mutation['INS_TYPE'] == 'INV':
+                num_inv += 1
+                complemented = []
+                for nt in ref_seq[end_pos:(end_pos + len(mutation['ALT']) - 1)]:
+                    if nt == 'A':
+                        complemented.append('T')
+                    elif nt == 'C':
+                        complemented.append('G')
+                    elif nt == 'T':
+                        complemented.append('A')
+                    elif nt == 'G':
+                        complemented.append('C')
+                new_mutation['ALT'] = ref_seq[end_pos - 1] + ''.join(reversed(complemented))
+            start_pos = end_pos
+        new_seq.append(new_mutation['ALT'])
+        writer.writerow(new_mutation)
+        mutation = next(mutations_reader, None)
+    new_seq += ref_seq[start_pos:len(ref_seq)]
+    var_genome_fa.write('>'+ name + ' variant\n')
+    var_genome_fa.write(''.join(new_seq))
+    print('Template name:', name)
+    print('Template length:', len(ref_seq))
+    print('Output genome length:', len(''.join(new_seq)))
+    print('Number of SNP:', snps)
+    print('Number of indels:', (num_del + num_dup + num_rdm + num_inv))
+    print('Number of duplications (DUP):', num_dup)
+    print('Number of random-sequence insertions (RDM):', num_rdm)
+    print('Number of inversions (INV):', num_inv)
+    print('Number of deletions (DEL):', num_del)
+    
+    return
+
+
+def simulate_mutations(ref_genome, settings_file, mutations_out, var_genome_fa, evendist=True):
     settings = ConfigParser(allow_no_value=False)
-    settings.read(args.settings)
-    reference  = next(fastalite(args.reference))
+    settings.read(settings_file)
+    reference = next(fastalite(ref_genome))
     newseq = list(reference.seq)
     name = reference.id
-
     relpos = -1
     abspos = -1
     mutations = []
@@ -58,10 +139,9 @@ def main():
     num_rdm = 0
     num_inv = 0
     num_del = 0
-
     while True:
         # even distribution of variants
-        if(args.evendist):
+        if evendist:
             dist = add_dist(settings.get('variants', 'density'))
         # normal distribution of variants
         else:
@@ -89,7 +169,7 @@ def main():
                 char_at = newseq[relpos]
                 # choose indel from forward or back based on availability
                 if(relpos + 1 + indel_len > len(newseq) - 1):
-                    continue
+                        continue
                 # duplications
                 if random() < settings.getfloat('variants', 'duplication_to_other_ins'):
                     insertion = newseq[relpos+1:relpos+1+indel_len]
@@ -129,13 +209,13 @@ def main():
                 abspos += indel_len
                 indels.append(('deletion', len(removed)))
                 num_del += 1
-    args.output.write('>' + reference.id + '\n')
-    args.output.write(''.join(newseq))
+    var_genome_fa.write('>' + reference.id + '\n')
+    var_genome_fa.write(''.join(newseq))
 
-    writer = csv.writer(args.mutations, delimiter='\t')
+    writer = csv.writer(mutations_out, delimiter='\t')
     writer.writerow(['#CHROM', 'POS', 'ID', 'REF', 'ALT', 'TYPE', 'INS_TYPE'])
     writer.writerows(mutations)
-
+    
     print('Template length:', len(reference.seq))
     print('Output genome length:', len(newseq))
     print('Number of mutations (SNP + indels):', len(mutations))
@@ -145,7 +225,15 @@ def main():
     print('Number of random-sequence insertions (RDM):', num_rdm)
     print('Number of inversions (INV):', num_inv)
     print('Number of deletions (DEL):', num_del)
-    # number and length distribution of insertions and deletions (create pandas data.frame from 'stats'?)
+    return
+
+def main():
+    args = get_args()
+    if args.inputmutations == None:
+        simulate_mutations(args.reference, args.settings, args.mutations, args.output, evendist=args.evendist)
+    else:
+        add_specific_mutations(args.inputmutations, args.reference, args.mutations, args.output)
+    return
 
 if __name__ == '__main__':
     sys.exit(main())

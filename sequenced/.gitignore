@@ -1,0 +1,7 @@
+output/reads/*.fq*
+output/mapped/*
+output/called/*
+output/deduped/*
+output/bgzipped/*
+output/igv_reports/*
+logs/*

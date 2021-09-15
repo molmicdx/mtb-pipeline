@@ -86,6 +86,10 @@ def check(vcf_reader, true_variants_reader, vcf_cov_reader):
     while vcf_record and true_variant:
         called = get_variant_from_vcf_record(vcf_record)
         size = len(called['REF']) - len(called['ALT'])
+        if size == 0: 
+            called['LEN'] = 1 # SNP size
+        else:
+            called['LEN'] = abs(size)
         if called['POS'] == vcf_cov['POS']:
             called['BAM_DP'] = vcf_cov['BAM_DP']
         if (vcf_record.CHROM, vcf_record.POS) <= (true_variant['CHROM'], int(true_variant['POS'])):
@@ -101,16 +105,23 @@ def check(vcf_reader, true_variants_reader, vcf_cov_reader):
                 called['FALSE_POS'] = 1 # need fix for case when variant present in VCF but GT=0; filter out GT=0?
                 if size == 0:
                     called['TYPE'] = 'SNP'
+                    called['LEN'] = 1
                 elif size > 0:
                     called['TYPE'] = 'DEL'
+                    called['LEN'] = size
                 elif size < 0:
                     called['TYPE'] = 'INS'
+                    called['LEN'] = abs(size)
                 all_variants.append(called)
                 fps.append(called)
             vcf_record = next(vcf_reader, None)
             vcf_cov = next(vcf_cov_reader, None)
         else:
             true_variant['TOOL'] = args.variant_caller
+            if abs(len(true_variant['REF']) - len(true_variant['ALT'])) == 0:
+                true_variant['LEN'] = 1 # SNP size
+            else:
+                true_variant['LEN'] = abs(len(true_variant['REF']) - len(true_variant['ALT']))
             all_variants.append(true_variant)
             fns.append(true_variant)
             true_variant = next(true_variants_reader, None)
@@ -122,16 +133,23 @@ def check(vcf_reader, true_variants_reader, vcf_cov_reader):
         called['FALSE_POS'] = 1
         if size == 0:
             called['TYPE'] = 'SNP'
+            called['LEN'] = 1
         elif size > 0:
             called['TYPE'] = 'DEL'
+            called['LEN'] = size
         elif size < 0:
             called['TYPE'] = 'INS'
+            called['LEN'] = abs(size)
         all_variants.append(called)
         fps.append(called)
         vcf_record = next(vcf_reader, None)
         vcf_cov = next(vcf_cov_reader, None)
     while true_variant:
         true_variant['TOOL'] = args.variant_caller
+        if abs(len(true_variant['REF']) - len(true_variant['ALT'])) == 0:
+            true_variant['LEN'] = 1
+        else:
+            true_variant['LEN'] = abs(len(true_variant['REF']) - len(true_variant['ALT']))
         all_variants.append(true_variant)
         fns.append(true_variant)
         true_variant = next(true_variants_reader, None)
@@ -148,7 +166,7 @@ def write_variants(variants, fieldnames, file):
 def main():
     args = get_args()
     all_variants, tps, fps, fns = check(vcfpy.Reader(args.merged_vcf), csv.DictReader(args.true_variants), csv.DictReader(args.variant_cov))
-    fieldnames = ['CHROM','POS','REF','ALT','TYPE','INS_TYPE','QUAL','AD_REF','AD_ALT','DP','BAM_DP','GT','ZYG','RK_DISCOSNP','TOOL','SAMPLE','TRUE_POS','FALSE_POS','FALSE_NEG']
+    fieldnames = ['CHROM','POS','REF','ALT','TYPE','INS_TYPE','LEN','QUAL','AD_REF','AD_ALT','DP','BAM_DP','GT','ZYG','RK_DISCOSNP','TOOL','SAMPLE','TRUE_POS','FALSE_POS','FALSE_NEG']
     write_variants(all_variants, fieldnames, args.called_variants)
 
 if __name__ == '__main__':
