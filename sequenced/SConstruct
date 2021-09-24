@@ -353,18 +353,15 @@ freebayes_gvcf = env.Command(
               '--gvcf ${SOURCES[1]} > $TARGET')
 )
 
-<<<<<<< Updated upstream
-freebayes_vcf = env.Command(
-    target = '$out/$called_out/$freebayes_out/${variant}_${freebayes_out}.vcf',
-=======
 fb_allgt_vcf, freebayes_vcf = env.Command(
     target = ['$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_allgt_${ref_name}.vcf',
               '$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_${ref_name}.vcf'],
->>>>>>> Stashed changes
     source = ['$reference',
               mq_filtered_bam],
     action = ('$freebayes -f ${SOURCES[0]} -p $ploidy --min-alternate-fraction $allele_fraction '
-              '${SOURCES[1]} > $TARGET')
+              '${SOURCES[1]} > ${TARGETS[0]}; '
+              '$bcftools bcftools plugin setGT ${TARGETS[0]} -- -t q -n . -i \'GT="0"\' > tmp.vcf; '
+              '$bcftools bcftools view -g ^miss tmp.vcf > ${TARGETS[1]}')
 )
 
 freebayes_g_normalized, freebayes_g_norm_log = env.Command(
