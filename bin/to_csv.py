@@ -3,9 +3,35 @@ import csv
 import vcfpy
 import sys
 
-parser = argparse.ArgumentParser(description='Convert variants.py mutation list (vcf), to csv for checker.py')
-parser.add_argument('file', type=argparse.FileType('r'), help='vcf input file')
+parser = argparse.ArgumentParser(description='Convert variants.py mutation list (vcf) or csv mutation list (CHROM,POS,REF,ALT,TYPE,<sample>), to csv for checker.py')
+parser.add_argument('file', type=argparse.FileType('r'), help='input file')
 parser.add_argument('outcsv', type=argparse.FileType('w'), help='name of output csv file')
+parser.add_argument('--formatcsv', action='store_const', const=True, help='input file is csv')
+
+def format_csv(csvin, csvout):
+    reader = csv.DictReader(csvin)
+    fields_in = reader.fieldnames
+    fieldnames = ['CHROM','POS','REF','ALT','TYPE','INS_TYPE','AD_REF','AD_ALT','DP','BAM_DP','GT','ZYG','TRUE_POS','FALSE_POS','FALSE_NEG','TOOL','SAMPLE']
+    writer = csv.DictWriter(csvout, fieldnames=fieldnames)
+    writer.writeheader()
+    mutation = next(reader, None)
+    while mutation:
+        entry = {}
+        entry['CHROM'] = mutation['CHROM']
+        entry['POS'] = mutation['POS']
+        entry['REF'] = mutation['REF']
+        entry['ALT'] = mutation['ALT']
+        entry['TYPE'] = mutation['TYPE']
+        entry['GT'] = mutation[fields_in[-1]]
+        entry['ZYG'] = 'hom'
+        entry['TRUE_POS'] = 0
+        entry['FALSE_POS'] = 0
+        entry['FALSE_NEG'] = 1
+        entry['SAMPLE'] = fields_in[-1]
+        writer.writerow(entry)
+        mutation = next(reader, None)
+    
+    return
 
 def vcf_to_csv(vcf, csvout):
     vcf_reader = vcfpy.Reader(vcf)
@@ -50,7 +76,10 @@ def vcf_to_csv(vcf, csvout):
 
 def main():
     args = parser.parse_args()
-    vcf_to_csv(args.file, args.outcsv)
+    if args.formatcsv:
+        format_csv(args.file, args.outcsv)
+    else:
+        vcf_to_csv(args.file, args.outcsv)
 
 if __name__ == '__main__':
     sys.exit(main())
