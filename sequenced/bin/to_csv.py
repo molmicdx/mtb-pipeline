@@ -11,7 +11,7 @@ parser.add_argument('--formatcsv', action='store_const', const=True, help='input
 def format_csv(csvin, csvout):
     reader = csv.DictReader(csvin)
     fields_in = reader.fieldnames
-    fieldnames = ['CHROM','POS','REF','ALT','TYPE','INS_TYPE','AD_REF','AD_ALT','DP','BAM_DP','GT','ZYG','TRUE_POS','FALSE_POS','FALSE_NEG','TOOL','SAMPLE']
+    fieldnames = ['CHROM','POS','REF','ALT','TYPE','INS_TYPE','LEN','QUAL','AD_REF','AD_ALT','DP','BAM_DP','GT','ZYG','RK_DISCOSNP','TOOL','SAMPLE','TRUE_POS','FALSE_POS','FALSE_NEG']
     writer = csv.DictWriter(csvout, fieldnames=fieldnames)
     writer.writeheader()
     mutation = next(reader, None)
@@ -35,7 +35,7 @@ def format_csv(csvin, csvout):
 
 def vcf_to_csv(vcf, csvout):
     vcf_reader = vcfpy.Reader(vcf)
-    fieldnames = ['CHROM','POS','REF','ALT','TYPE','INS_TYPE','AD_REF','AD_ALT','DP','BAM_DP','GT','ZYG','TRUE_POS','FALSE_POS','FALSE_NEG','TOOL','SAMPLE']
+    fieldnames = ['CHROM','POS','REF','ALT','TYPE','INS_TYPE','LEN','QUAL','AD_REF','AD_ALT','DP','BAM_DP','GT','ZYG','RK_DISCOSNP','TOOL','SAMPLE','TRUE_POS','FALSE_POS','FALSE_NEG']
     writer = csv.DictWriter(csvout, fieldnames=fieldnames)
     writer.writeheader()
     record = next(vcf_reader, None)
