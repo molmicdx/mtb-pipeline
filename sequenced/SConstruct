@@ -125,6 +125,23 @@ env = Environment(
 # Help(vars.GenerateHelpText(env))
 
 # ############### start inputs ################
+
+# ######### Index Reference Sequence #########
+
+ref_index = env.Command(
+    target = '${reference}.fai',
+    source = '$reference',
+    action = '$samtools faidx $SOURCE'
+)
+
+# ######## Create Reference Seq Dictionary ########
+
+ref_dict = env.Command(
+    target = 'data/${ref_name}.dict',
+    source = '$reference',
+    action = '$gatk CreateSequenceDictionary -R $SOURCE'
+)
+
 # ############## Trim NGS Reads ################
 R1trimmed, R2trimmed, trimlog  = env.Command(
     target = ['$out/$reads_out/${variant}.R1.trimmed.fq.gz',
@@ -522,7 +539,7 @@ lancet_normalized, lancet_norm_log = env.Command(
 )
 
 lancet_pass = env.Command(
-    target = '$out/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}_normalized_PASS.vcf',
+    target = '$out/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}_normalized_PASS_${ref_name}.vcf',
     source = lancet_normalized,
     action = 'grep "#" $SOURCE > $TARGET; grep "$$(printf \'\\t\')PASS$$(printf \'\\t\')" $SOURCE >> $TARGET'
 )
@@ -637,7 +654,7 @@ discosnp_final_vcf = env.Command(
 )
 
 discosnp_pass = env.Command(
-    target = '$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASS.vcf',
+    target = '$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASS_${ref_name}.vcf',
     source = discosnp_final_vcf,
     action = 'grep "#" $SOURCE > $TARGET; grep "$$(printf \'\\t\')PASS$$(printf \'\\t\')" $SOURCE >> $TARGET'
 )
