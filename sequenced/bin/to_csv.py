@@ -25,9 +25,9 @@ def format_csv(csvin, csvout, toref):
             entry['ALT'] = mutation['REF']
             if mutation['TYPE'] != 'SNP':
                 if mutation['TYPE'] == 'DEL':
-                    entry['TYPE'] == 'INS'
+                    entry['TYPE'] = 'INS'
                 elif mutation['TYPE'] == 'INS':
-                    entry['TYPE'] == 'DEL'
+                    entry['TYPE'] = 'DEL'
                     entry['INS_TYPE'] = ''
             else:
                 entry['TYPE'] = mutation['TYPE']
