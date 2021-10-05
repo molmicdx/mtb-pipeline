@@ -20,3 +20,11 @@ data/CP016972*
 output/igv_snapshots/
 test*
 xsv
+*.amb
+*.ann
+*.bwt
+*.pac
+*.sa
+*perbase-genomecov.txt
+*tmp*
+data/H37Ra-INHOUSE-*
