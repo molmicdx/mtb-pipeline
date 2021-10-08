@@ -3,8 +3,8 @@ import csv
 import vcfpy
 import sys
 
-parser = argparse.ArgumentParser(description='Convert variants.py mutation list (vcf), to csv for checker.py')
-parser.add_argument('file', type=argparse.FileType('r'), help='vcf input file')
+parser = argparse.ArgumentParser(description='Convert variants.py mutation list (vcf) or csv mutation list (CHROM,POS,REF,ALT,TYPE,<sample>), to csv for checker.py')
+parser.add_argument('file', type=argparse.FileType('r'), help='input file')
 parser.add_argument('outcsv', type=argparse.FileType('w'), help='name of output csv file')
 parser.add_argument('--formatcsv', action='store_const', const=True, help='input file is csv')
 parser.add_argument('--asref', action='store_const', const=True,  help='use with --formatcsv if changing introduced mutations to true mutations csv')
@@ -55,7 +55,7 @@ def format_csv(csvin, csvout, toref, samplename):
 
 def vcf_to_csv(vcf, csvout):
     vcf_reader = vcfpy.Reader(vcf)
-    fieldnames = ['CHROM','POS','REF','ALT','TYPE','INS_TYPE','AD_REF','AD_ALT','DP','BAM_DP','GT','ZYG','TRUE_POS','FALSE_POS','FALSE_NEG','TOOL','SAMPLE']
+    fieldnames = ['CHROM','POS','REF','ALT','TYPE','INS_TYPE','LEN','QUAL','AD_REF','AD_ALT','DP','BAM_DP','GT','ZYG','RK_DISCOSNP','TOOL','SAMPLE','TRUE_POS','FALSE_POS','FALSE_NEG']
     writer = csv.DictWriter(csvout, fieldnames=fieldnames)
     writer.writeheader()
     record = next(vcf_reader, None)

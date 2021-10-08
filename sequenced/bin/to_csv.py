@@ -13,7 +13,7 @@ parser.add_argument('--sample', default=None, help='provide new sample name if u
 def format_csv(csvin, csvout, toref, samplename):
     reader = csv.DictReader(csvin)
     fields_in = reader.fieldnames
-    fieldnames = ['CHROM','POS','REF','ALT','TYPE','INS_TYPE','AD_REF','AD_ALT','DP','BAM_DP','GT','ZYG','TRUE_POS','FALSE_POS','FALSE_NEG','TOOL','SAMPLE']
+    fieldnames = ['CHROM','POS','REF','ALT','TYPE','INS_TYPE','LEN','QUAL','AD_REF','AD_ALT','DP','BAM_DP','GT','ZYG','RK_DISCOSNP','TOOL','SAMPLE','TRUE_POS','FALSE_POS','FALSE_NEG']
     writer = csv.DictWriter(csvout, fieldnames=fieldnames)
     writer.writeheader()
     mutation = next(reader, None)
@@ -21,9 +21,21 @@ def format_csv(csvin, csvout, toref, samplename):
         entry = {}
         entry['CHROM'] = mutation['CHROM']
         entry['POS'] = mutation['POS']
-        entry['REF'] = mutation['REF']
-        entry['ALT'] = mutation['ALT']
-        entry['TYPE'] = mutation['TYPE']
+        if toref:
+            entry['REF'] = mutation['ALT']
+            entry['ALT'] = mutation['REF']
+            if mutation['TYPE'] != 'SNP':
+                if mutation['TYPE'] == 'DEL':
+                    entry['TYPE'] = 'INS'
+                elif mutation['TYPE'] == 'INS':
+                    entry['TYPE'] = 'DEL'
+                    entry['INS_TYPE'] = ''
+            else:
+                entry['TYPE'] = mutation['TYPE']
+        else:
+            entry['REF'] = mutation['REF']
+            entry['ALT'] = mutation['ALT']
+            entry['TYPE'] = mutation['TYPE']
         entry['GT'] = mutation[fields_in[-1]]
         entry['ZYG'] = 'hom'
         entry['TRUE_POS'] = 0
@@ -43,7 +55,7 @@ def format_csv(csvin, csvout, toref, samplename):
 
 def vcf_to_csv(vcf, csvout):
     vcf_reader = vcfpy.Reader(vcf)
-    fieldnames = ['CHROM','POS','REF','ALT','TYPE','INS_TYPE','AD_REF','AD_ALT','DP','BAM_DP','GT','ZYG','TRUE_POS','FALSE_POS','FALSE_NEG','TOOL','SAMPLE']
+    fieldnames = ['CHROM','POS','REF','ALT','TYPE','INS_TYPE','LEN','QUAL','AD_REF','AD_ALT','DP','BAM_DP','GT','ZYG','RK_DISCOSNP','TOOL','SAMPLE','TRUE_POS','FALSE_POS','FALSE_NEG']
     writer = csv.DictWriter(csvout, fieldnames=fieldnames)
     writer.writeheader()
     record = next(vcf_reader, None)
