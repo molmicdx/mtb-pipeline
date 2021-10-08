@@ -575,14 +575,6 @@ lancet_pass = env.Command(
 
 
 lancet_final_vcf, lancet_sort_log = env.Command(
-    target = ['$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_sorted.vcf',
-              '$log/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_sorted.log'],
-    source = lancet_normalized,
-    action = 'grep "#" $SOURCE > $TARGET; grep "$$(printf \'\\t\')PASS$$(printf \'\\t\')" $SOURCE >> $TARGET'
-)
-
-
-lancet_final_vcf, lancet_sort_log = env.Command(
     target = ['$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_PASSsorted_${ref_name}.vcf',
               '$log/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_PASSsorted_${ref_name}.log'],
     source = lancet_pass,
