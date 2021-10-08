@@ -7,8 +7,10 @@ parser = argparse.ArgumentParser(description='Convert variants.py mutation list 
 parser.add_argument('file', type=argparse.FileType('r'), help='input file')
 parser.add_argument('outcsv', type=argparse.FileType('w'), help='name of output csv file')
 parser.add_argument('--formatcsv', action='store_const', const=True, help='input file is csv')
+parser.add_argument('--asref', action='store_const', const=True,  help='use with --formatcsv if changing introduced mutations to true mutations csv')
+parser.add_argument('--sample', default=None, help='provide new sample name if using --asref')
 
-def format_csv(csvin, csvout):
+def format_csv(csvin, csvout, toref, samplename):
     reader = csv.DictReader(csvin)
     fields_in = reader.fieldnames
     fieldnames = ['CHROM','POS','REF','ALT','TYPE','INS_TYPE','AD_REF','AD_ALT','DP','BAM_DP','GT','ZYG','TRUE_POS','FALSE_POS','FALSE_NEG','TOOL','SAMPLE']
@@ -27,7 +29,13 @@ def format_csv(csvin, csvout):
         entry['TRUE_POS'] = 0
         entry['FALSE_POS'] = 0
         entry['FALSE_NEG'] = 1
-        entry['SAMPLE'] = fields_in[-1]
+        if samplename == None:
+            try:
+                entry['SAMPLE'] = mutation['SAMPLE']
+            except KeyError:
+                entry['SAMPLE'] = fields_in[-1]
+        else:
+            entry['SAMPLE'] = samplename
         writer.writerow(entry)
         mutation = next(reader, None)
     
@@ -77,7 +85,7 @@ def vcf_to_csv(vcf, csvout):
 def main():
     args = parser.parse_args()
     if args.formatcsv:
-        format_csv(args.file, args.outcsv)
+        format_csv(args.file, args.outcsv, args.asref, args.sample)
     else:
         vcf_to_csv(args.file, args.outcsv)
 
