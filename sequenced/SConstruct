@@ -111,7 +111,7 @@ env = Environment(
     igv_flank = config.get('report', 'igv_flanking_sites'),
     gatk = '{} exec -B $cwd {} gatk'.format(singularity, gatk_img),
     cutadapt = '{} exec -B $cwd {} cutadapt'.format(singularity, cutadapt_img),
-    bwa = '{} exec -B $cwd {} bwa mem'.format(singularity, bwa_img),
+    bwa = '{} exec -B $cwd {} bwa'.format(singularity, bwa_img),
     samtools = '{} exec -B $cwd {} samtools'.format(singularity, samtools_img),
     bcftools = '{} exec -B $cwd {}'.format(singularity, bcftools_img),
     bedtools = '{} exec -B $cwd {} bedtools'.format(singularity, bedtools_img),
@@ -125,6 +125,29 @@ env = Environment(
 # Help(vars.GenerateHelpText(env))
 
 # ############### start inputs ################
+
+# ######### Index Reference Sequence #########
+
+ref_index = env.Command(
+    target = '${reference}.fai',
+    source = '$reference',
+    action = '$samtools faidx $SOURCE'
+)
+
+bwa_idx = env.Command(
+    target = '${reference}.bwt',
+    source = '$reference',
+    action = '$bwa index $SOURCE'
+)
+
+# ######## Create Reference Seq Dictionary ########
+
+ref_dict = env.Command(
+    target = 'data/${ref_name}.dict',
+    source = '$reference',
+    action = '$gatk CreateSequenceDictionary -R $SOURCE'
+)
+
 # ############## Trim NGS Reads ################
 R1trimmed, R2trimmed, trimlog  = env.Command(
     target = ['$out/$reads_out/${variant}.R1.trimmed.fq.gz',
@@ -143,7 +166,7 @@ sam = env.Command(
     target = ['$out/$mapped_out/${variant}_trimmed.sam',
               '$log/$mapped_out/${variant}_trimmed_mapped.log'],
     source = ['$reference', R1trimmed, R2trimmed],
-    action = ('$bwa $SOURCES -K $bwa_k '
+    action = ('$bwa mem $SOURCES -K $bwa_k '
               '-R \'@RG\\tID:${variant}\\tLB:LB_${variant}\\tPL:${rg_pl}\\tPU:${rg_pu}\\tSM:${variant}\' '
               '> ${TARGETS[0]} 2>${TARGETS[-1]}')
 )
@@ -179,6 +202,28 @@ genome_cov = env.Command(
     source = mq_filtered_bam,
     action = '$bedtools genomecov -ibam $SOURCE -bga > $TARGET'
 )
+
+
+# ############### Get Variant Coverage ################
+
+variant_formatted_csv, variant_bed = env.Command(
+    target = ['$out/$variants_out/${variant}_formatted_${ref_name}.csv',
+              '$out/$variants_out/${variant}_${ref_name}.bed'],
+    source = '$out/$variants_out/${variant}_normalized.csv',
+    action = ('python $to_csv $SOURCE ${TARGETS[0]} --formatcsv; '
+              'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
+)
+
+variant_cov_bed, variant_cov_csv = env.Command(
+    target = ['$out/$variants_out/${variant}_genomecov_intersect_${ref_name}.bed',
+              '$out/$variants_out/${variant}_cov_${ref_name}.csv'],
+    source = ['$out/$variants_out/${variant}_formatted_${ref_name}.csv',
+              '$out/$variants_out/${variant}_${ref_name}.bed',
+              genome_cov],
+    action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -wo > ${TARGETS[0]}; '
+              'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
+)
+
 
 # ################## Validate BAM #####################
 
@@ -496,7 +541,7 @@ lancet_vcf, lancet_log = env.Command(
               '$log/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}.log'],
     source = ['$reference',
               mq_filtered_bam,
-              '$out/$deduped_out/${ref_name}_deduped_mq10.bam'],
+              '$out/$deduped_out/${ref_name}_deduped_mq_${ref_name}.bam'],
     action = ('./bin/lancet --tumor ${SOURCES[1]} --normal ${SOURCES[2]} --ref ${SOURCES[0]} '
               '--reg $accession --min-vaf-tumor $allele_fraction --low-cov $min_read_depth '
               '--num-threads $max_threads --print-config-file > ${TARGETS[0]} 2>${TARGETS[-1]}')
@@ -517,14 +562,22 @@ lancet_normalized, lancet_norm_log = env.Command(
               '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
 )
 
+lancet_pass = env.Command(
+    target = '$out/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}_normalized_PASS_${ref_name}.vcf',
+    source = lancet_normalized,
+    #action = 'echo "none passing"'
+    action = 'grep "#" $SOURCE > $TARGET; grep "$$(printf \'\\t\')PASS$$(printf \'\\t\')" $SOURCE >> $TARGET'
+)
+
+
 lancet_final_vcf, lancet_sort_log = env.Command(
     target = ['$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_sorted.vcf',
               '$log/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_sorted.log'],
     source = lancet_normalized,
     action = ('for sample in $$(zgrep -m 1 "^#CHROM" $SOURCE | cut -f10-); do '
-              '    $bcftools bcftools view -c 1 -Ov -s $$sample -o $out/$called_out/$lancet_out/$$sample\'_${lancet_out}_normalized.vcf\' $SOURCE; done; '
-              '$gatk SortVcf -I $out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized.vcf -O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1; '
-              'rm $out/$called_out/$lancet_out/${ref_name}_${lancet_out}_normalized.vcf')
+              '    $bcftools bcftools view -c 1 -Ov -s $$sample -o $out/$called_out/$lancet_out/$$sample\'_${lancet_out}_normalized_PASS_${ref_name}.vcf\' $SOURCE; done; '
+              '$gatk SortVcf -I $out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_PASS_${ref_name}.vcf -O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1; ')
+              #'rm $out/$called_out/$lancet_out/${ref_name}_${lancet_out}_normalized_PASS_${ref_name}.vcf')
 )
 
 
@@ -740,28 +793,7 @@ vardict_cov_bed, vardict_cov_csv = env.Command(
 )
 
 
-# ############### Get Variant Coverage ################
-
-variant_formatted_csv, variant_bed = env.Command(
-    target = ['$out/$variants_out/${variant}_formatted.csv',
-              '$out/$variants_out/${variant}.bed'],
-    source = '$out/$variants_out/${variant}.csv',
-    action = ('python $to_csv $SOURCE ${TARGETS[0]} --formatcsv; '
-              'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
-)
-
-variant_cov_bed, variant_cov_csv = env.Command(
-    target = ['$out/$variants_out/${variant}_genomecov_intersect.bed',
-              '$out/$variants_out/${variant}_cov.csv'],
-    source = [variant_formatted_csv,
-              variant_bed,
-              genome_cov],
-    action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -wo > ${TARGETS[0]}; '
-              'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
-)
-
-
-# ################### Check Calls ######################
+# ################### Filter Variant Calls by DP ######################
 
 gatk_cov_filtered = env.Command(
     target = '$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_dp${min_read_depth}.vcf',
