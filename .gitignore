@@ -20,3 +20,6 @@ data/CP016972*
 output/igv_snapshots/
 test*
 xsv
+data/*.fa*.*
+sequenced/data/*.fa*.*
+data/PROKKA*
