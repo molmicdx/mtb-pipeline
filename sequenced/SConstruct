@@ -1,6 +1,7 @@
 import os
 import sys
-from utils import parse_config
+#from utils import parse_config
+from bin.utils import parse_config, annotate_specimens
 
 config = parse_config('configs/settings.conf')
 
@@ -10,6 +11,7 @@ try:
 except KeyError:
     sys.exit('an active virtualenv is required')
 
+specimens = annotate_specimens(config)
 singularity = config.get('singularity', 'singularity')
 gatk_img = config.get('singularity', 'gatk')
 cutadapt_img = config.get('singularity', 'cutadapt')
@@ -64,6 +66,7 @@ env = Environment(
     variant = config.get('sequenced', 'variant_name'),
     to_csv = config.get('variant_simulation', 'to_csv_script'),
     to_bed = config.get('variant_simulation', 'to_bed_script'),
+    downsample = config.getint('reads_preprocessing', 'downsample'),
     add_cov = config.get('variant_simulation', 'add_cov_script'),
     min_read_q = config.get('reads_preprocessing', 'min_read_quality'),
     min_read_len = config.get('reads_preprocessing', 'min_read_length'),
@@ -125,7 +128,7 @@ env = Environment(
 # Help(vars.GenerateHelpText(env))
 
 # ############### start inputs ################
-
+'''
 # ######### Index Reference Sequence #########
 
 ref_index = env.Command(
@@ -147,63 +150,82 @@ ref_dict = env.Command(
     source = '$reference',
     action = '$gatk CreateSequenceDictionary -R $SOURCE'
 )
+'''
+
+# ######## Copy, Subsample Reads ########
+for specimen_id, metadata in specimens.items():
+    e = env.Clone(variant=specimen_id)
+    raw_reads = [metadata['forward_reads'], metadata['reverse_reads']]
+    if e['downsample']:
+        filter_action = 'gzip -cd $SOURCE | head -n {} | gzip > $TARGET'.format(e['downsample'] * 4)
+        fwd = e.Command(
+              target = '$out/$reads_out/${variant}_R1.fq.gz',
+              source = metadata['forward_reads'],
+              action = filter_action)
+
+        rev = e.Command(
+              target = '$out/$reads_out/${variant}_R2.fq.gz',
+              source = metadata['reverse_reads'],
+              action = filter_action)
+        seqs = [fwd, rev]
+    else:
+        seqs = raw_reads
 
 # ############## Trim NGS Reads ################
-R1trimmed, R2trimmed, trimlog  = env.Command(
-    target = ['$out/$reads_out/${variant}.R1.trimmed.fq.gz',
-              '$out/$reads_out/${variant}.R2.trimmed.fq.gz',
-              '$log/$reads_out/${variant}_cutadapt.log'],
-    source = ['$out/$reads_out/${variant}_R1.fq.gz',
-              '$out/$reads_out/${variant}_R2.fq.gz'],
-    action = ('$cutadapt --cores $cutadapt_cores -q $min_read_q -b file:$adaptors -B file:$adaptors '
-              '--minimum-length $min_read_len -o ${TARGETS[0]} -p ${TARGETS[1]} $SOURCES '
-              '> ${TARGETS[-1]} 2>&1')
-)
+    R1trimmed, R2trimmed, trimlog  = e.Command(
+        target = ['$out/$reads_out/${variant}.R1.trimmed.fq.gz',
+                  '$out/$reads_out/${variant}.R2.trimmed.fq.gz',
+                  '$log/$reads_out/${variant}_cutadapt.log'],
+        source = seqs,
+        action = ('$cutadapt --cores $cutadapt_cores -q $min_read_q -b file:$adaptors -B file:$adaptors '
+                  '--minimum-length $min_read_len -o ${TARGETS[0]} -p ${TARGETS[1]} $SOURCES '
+                  '> ${TARGETS[-1]} 2>&1')
+    )   
 
 # ################ Map Reads ###################
 
-sam = env.Command(
-    target = ['$out/$mapped_out/${variant}_trimmed_${ref_name}.sam',
-              '$log/$mapped_out/${variant}_trimmed_mapped_${ref_name}.log'],
-    source = ['$reference', R1trimmed, R2trimmed],
-    action = ('$bwa mem $SOURCES -K $bwa_k '
-              '-R \'@RG\\tID:${variant}\\tLB:LB_${variant}\\tPL:${rg_pl}\\tPU:${rg_pu}\\tSM:${variant}\' '
-              '> ${TARGETS[0]} 2>${TARGETS[-1]}')
-)
+    sam = e.Command(
+        target = ['$out/$mapped_out/${variant}_trimmed_${ref_name}.sam',
+                  '$log/$mapped_out/${variant}_trimmed_mapped_${ref_name}.log'],
+        source = ['$reference', R1trimmed, R2trimmed],
+        action = ('$bwa mem $SOURCES -K $bwa_k '
+                  '-R \'@RG\\tID:${variant}\\tLB:LB_${variant}\\tPL:${rg_pl}\\tPU:${rg_pu}\\tSM:${variant}\' '
+                  '> ${TARGETS[0]} 2>${TARGETS[-1]}')
+    )
 
-sorted_bam = env.Command(
-    target = '$out/$mapped_out/${variant}_trimmed-sorted_${ref_name}.bam',
-    source = sam,
-    action = '$samtools sort $SOURCE $out/$mapped_out/${variant}_trimmed-sorted_${ref_name}'
-)
+    sorted_bam = e.Command(
+        target = '$out/$mapped_out/${variant}_trimmed-sorted_${ref_name}.bam',
+        source = sam,
+        action = '$samtools sort $SOURCE $out/$mapped_out/${variant}_trimmed-sorted_${ref_name}'
+    )
 
 # ############## Remove Duplicate Reads ###############
-deduped, deduped_metrics, deduped_log = env.Command(
-    target = ['$out/$deduped_out/${variant}_deduped_${ref_name}.bam', 
-              '$out/$deduped_out/${variant}_deduped_metrics_${ref_name}.txt',
-              '$log/$deduped_out/${variant}_deduped_${ref_name}.log'],
-    source = sorted_bam,
-    action = ('$gatk MarkDuplicates -I $SOURCE -O ${TARGETS[0]} -M ${TARGETS[1]} --REMOVE_DUPLICATES TRUE '
-              '> ${TARGETS[-1]} 2>&1')
-)
+    deduped, deduped_metrics, deduped_log = e.Command(
+        target = ['$out/$deduped_out/${variant}_deduped_${ref_name}.bam', 
+                  '$out/$deduped_out/${variant}_deduped_metrics_${ref_name}.txt',
+                  '$log/$deduped_out/${variant}_deduped_${ref_name}.log'],
+        source = sorted_bam,
+        action = ('$gatk MarkDuplicates -I $SOURCE -O ${TARGETS[0]} -M ${TARGETS[1]} --REMOVE_DUPLICATES TRUE '
+                  '> ${TARGETS[-1]} 2>&1')
+    )
 
 # ################### Filter Reads, Get BAM Read Depths ####################
 
-mq_filtered_bam, indexed_bam = env.Command(
-    target = ['$out/$deduped_out/${variant}_deduped_mq_${ref_name}.bam',
-              '$out/$deduped_out/${variant}_deduped_mq_${ref_name}.bam.bai'],
-    source = deduped,
-    action = ('$samtools view $SOURCE -q $mapq -bo ${TARGETS[0]}; '
+    mq_filtered_bam, indexed_bam = e.Command(
+        target = ['$out/$deduped_out/${variant}_deduped_mq_${ref_name}.bam',
+                  '$out/$deduped_out/${variant}_deduped_mq_${ref_name}.bam.bai'],
+        source = deduped,
+        action = ('$samtools view $SOURCE -q $mapq -bo ${TARGETS[0]}; '
               '$samtools index ${TARGETS[0]}')
-)
+    )
 
-genome_cov = env.Command(
-    target = '$out/$variants_out/${variant}_deduped_mq10_genomecov_${ref_name}.bed',
-    source = mq_filtered_bam,
-    action = '$bedtools genomecov -ibam $SOURCE -bga > $TARGET'
-)
+    genome_cov = e.Command(
+        target = '$out/$variants_out/${variant}_deduped_mq10_genomecov_${ref_name}.bed',
+        source = mq_filtered_bam,
+        action = '$bedtools genomecov -ibam $SOURCE -bga > $TARGET'
+    )
 
-
+'''
 # ############### Get Variant Coverage ################
 
 variant_formatted_csv, variant_bed = env.Command(
@@ -655,7 +677,7 @@ discosnp_vcf, discosnp_log = env.Command(
               '-b $disco_mode -k $kmer_size -c $coverage -T -l '
               '-G ../${SOURCES[0]} -p ${ref_name}_${variant} -u $max_threads > ${TARGETS[-1]} 2>&1; '
               'mv $out/${ref_name}_${variant}* $out/$called_out/$discosnp_out/; '
-	      'sed -i \'s/INDEL_.*_path_[0-9]*/${accession}/g\' ${TARGETS[0]}') #temp fix for inexplicable VCF entry; may falsely inflate false positive calls
+	      'sed -i \'s/_.*_path_[0-9]*/${accession}/g\' ${TARGETS[0]}') #temp fix for inexplicable VCF entry; may falsely inflate false positive calls
 )
 
 discosnp_normalized, discosnp_norm_log = env.Command(
@@ -912,4 +934,4 @@ all_checked_csv = env.Command(
     action = ('echo \'CHROM,POS,REF,ALT,TYPE,INS_TYPE,LEN,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,ZYG,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG\' > $TARGET; '
               'cat $SOURCES | sed \'/CHROM,POS,REF,ALT,TYPE,INS_TYPE,LEN,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,ZYG,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG/d\' >> $TARGET')
 )
-
+'''
