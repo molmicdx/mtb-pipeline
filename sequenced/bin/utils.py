@@ -27,7 +27,6 @@ def annotate_specimens(config):
         reads = dict(config.items(specimen_id))
         metadata['forward_reads'] = reads['forward']
         metadata['reverse_reads'] = reads['reverse']
-        print(reads['forward'], reads['reverse'])
         if not os.path.exists(reads['forward']) or not os.path.exists(reads['reverse']):
             sys.exit("Files with reads for specimen {} don't exist".format(specimen_id))
     return specimens
