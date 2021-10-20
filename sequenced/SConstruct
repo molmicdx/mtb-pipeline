@@ -225,116 +225,84 @@ for specimen_id, metadata in specimens.items():
         action = '$bedtools genomecov -ibam $SOURCE -bga > $TARGET'
     )
 
-'''
-# ############### Get Variant Coverage ################
-
-variant_formatted_csv, variant_bed = env.Command(
-    target = ['$out/$variants_out/${variant}_formatted_${ref_name}.csv',
-              '$out/$variants_out/${variant}_${ref_name}.bed'],
-    source = '$out/$variants_out/${variant}_normalized.csv',
-    action = ('python $to_csv $SOURCE ${TARGETS[0]} --formatcsv; '
-              'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
-)
-
-variant_cov_bed, variant_cov_csv = env.Command(
-    target = ['$out/$variants_out/${variant}_genomecov_intersect_${ref_name}.bed',
-              '$out/$variants_out/${variant}_cov_${ref_name}.csv'],
-    source = ['$out/$variants_out/${variant}_formatted_${ref_name}.csv',
-              '$out/$variants_out/${variant}_${ref_name}.bed',
-              genome_cov],
-    action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -wo > ${TARGETS[0]}; '
-              'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
-)
-
-
-# ################## Validate BAM #####################
-
-#bamlog = env.Command(
-#    target = '$out/$deduped_out/${variant}_deduped_mq_validatebam.log',
-#    source = mq_filtered_bam,
-#    action = '$gatk ValidateSamFile -I $SOURCE --MODE SUMMARY > $TARGET 2>&1'
-#)
-
 # ############### end inputs ##################
 
-
 # ################# Call Variants #####################
-
 # ##################### GATK ##########################
 
-gatk_gvcf, gatk_log = env.Command(
-    target = ['$out/$called_out/$gvcf_out/${variant}_${gatk_out}_${ref_name}.g.vcf',
-              '$log/$called_out/$gvcf_out/${variant}_${gatk_out}_haplotypecaller_${ref_name}.log'],
-    source = ['$reference',
-              mq_filtered_bam,
-              indexed_bam],
-    action = ('$gatk HaplotypeCaller -ploidy $ploidy -R ${SOURCES[0]} -I ${SOURCES[1]} '
-              '-O ${TARGETS[0]} -ERC GVCF > ${TARGETS[-1]} 2>&1')
-)
+    gatk_gvcf, gatk_log = e.Command(
+        target = ['$out/$called_out/$gvcf_out/${variant}_${gatk_out}_${ref_name}.g.vcf',
+                  '$log/$called_out/$gvcf_out/${variant}_${gatk_out}_haplotypecaller_${ref_name}.log'],
+        source = ['$reference',
+                  mq_filtered_bam,
+                  indexed_bam],
+        action = ('$gatk HaplotypeCaller -ploidy $ploidy -R ${SOURCES[0]} -I ${SOURCES[1]} '
+                  '-O ${TARGETS[0]} -ERC GVCF > ${TARGETS[-1]} 2>&1')
+    )
 
-gatk_gt, gatk_gt_log = env.Command(
-    target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}_${ref_name}.vcf',
-              '$log/$called_out/$gatk_out/${variant}_${gatk_out}_genotypegvcfs_${ref_name}.log'],
-    source = ['$reference',
-              gatk_gvcf],
-    action = ('$gatk GenotypeGVCFs -R ${SOURCES[0]} -V ${SOURCES[1]} '
-              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
-)
+    gatk_gt, gatk_gt_log = e.Command(
+        target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}_${ref_name}.vcf',
+                  '$log/$called_out/$gatk_out/${variant}_${gatk_out}_genotypegvcfs_${ref_name}.log'],
+        source = ['$reference',
+                  gatk_gvcf],
+        action = ('$gatk GenotypeGVCFs -R ${SOURCES[0]} -V ${SOURCES[1]} '
+                  '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+    )
 
-gatk_g_normalized, gatk_g_norm_log = env.Command(
-    target = ['$out/$called_out/$gvcf_out/${variant}_${gatk_out}_normalized_${ref_name}.g.vcf',
-              '$log/$called_out/$gvcf_out/${variant}_${gatk_out}_normalized_${ref_name}.g.log'],
-    source = ['$reference',
-              gatk_gvcf],
-    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
-              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
-)
+    gatk_g_normalized, gatk_g_norm_log = e.Command(
+        target = ['$out/$called_out/$gvcf_out/${variant}_${gatk_out}_normalized_${ref_name}.g.vcf',
+                  '$log/$called_out/$gvcf_out/${variant}_${gatk_out}_normalized_${ref_name}.g.log'],
+        source = ['$reference',
+                  gatk_gvcf],
+        action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
+                  '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+    )
 
-gatk_normalized, gatk_norm_log = env.Command(
-    target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_${ref_name}.vcf',
-              '$log/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_${ref_name}.log'],
-    source = ['$reference',
-              gatk_gt],
-    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
-              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
-)
+    gatk_normalized, gatk_norm_log = e.Command(
+        target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_${ref_name}.vcf',
+                  '$log/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_${ref_name}.log'],
+        source = ['$reference',
+                  gatk_gt],
+        action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
+                  '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+    )
 
-gatk_bgz = env.Command(
-    target = '$out/$bgz_out/$gatk_out/${variant}_${gatk_out}_normalized_${ref_name}.vcf.gz',
-    source = gatk_normalized,
-    action = 'bgzip < $SOURCE > $TARGET'
-)
+    gatk_bgz = e.Command(
+        target = '$out/$bgz_out/$gatk_out/${variant}_${gatk_out}_normalized_${ref_name}.vcf.gz',
+        source = gatk_normalized,
+        action = 'bgzip < $SOURCE > $TARGET'
+    )
 
-gatk_tbi, gatk_igv, gatk_igv_log = env.Command(
-    target = ['$out/$bgz_out/$gatk_out/${variant}_${gatk_out}_normalized_${ref_name}.vcf.gz.tbi',
-              '$out/$igv_out/$gatk_out/${variant}_${gatk_out}_igv_${ref_name}.html',
-              '$log/$igv_out/$gatk_out/${variant}_${gatk_out}_igv_${ref_name}.log'],
-    source = [gatk_bgz,
-              '$reference',
-              mq_filtered_bam],
-    action = ('tabix -f ${SOURCES[0]}; create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
-              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
-)
+    gatk_tbi, gatk_igv, gatk_igv_log = e.Command(
+        target = ['$out/$bgz_out/$gatk_out/${variant}_${gatk_out}_normalized_${ref_name}.vcf.gz.tbi',
+                  '$out/$igv_out/$gatk_out/${variant}_${gatk_out}_igv_${ref_name}.html',
+                  '$log/$igv_out/$gatk_out/${variant}_${gatk_out}_igv_${ref_name}.log'],
+        source = [gatk_bgz,
+                  '$reference',
+                  mq_filtered_bam],
+        action = ('tabix -f ${SOURCES[0]}; create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
+                  '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
+    )
 
-gatk_csv, gatk_bed = env.Command(
-    target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_${ref_name}.vcf.csv',
-              '$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_${ref_name}.vcf.csv.bed'],
-    source = gatk_normalized,
-    action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
-              'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
-)
+    gatk_csv, gatk_bed = e.Command(
+        target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_${ref_name}.vcf.csv',
+                  '$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_${ref_name}.vcf.csv.bed'],
+        source = gatk_normalized,
+        action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
+                  'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
+    )
 
-gatk_cov_bed, gatk_cov_csv = env.Command(
-    target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_genomecov_intersect_${ref_name}.bed',
-              '$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_cov_${ref_name}.csv'],
-    source = [gatk_csv,
-              gatk_bed,
-              genome_cov],
-    action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -wo > ${TARGETS[0]}; '
-              'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
-)
+    gatk_cov_bed, gatk_cov_csv = e.Command(
+        target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_genomecov_intersect_${ref_name}.bed',
+                  '$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_cov_${ref_name}.csv'],
+        source = [gatk_csv,
+                  gatk_bed,
+                  genome_cov],
+        action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -wo > ${TARGETS[0]}; '
+                  'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
+    )
 
-
+'''
 # ##################### bcftools #######################
 
 bcftools_gvcf = env.Command(
@@ -813,6 +781,27 @@ vardict_cov_bed, vardict_cov_csv = env.Command(
               '$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_cov_${ref_name}.csv'],
     source = [vardict_csv,
               vardict_bed,
+              genome_cov],
+    action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -wo > ${TARGETS[0]}; '
+              'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
+)
+
+
+# ############### Get Variant Coverage ################
+
+variant_formatted_csv, variant_bed = env.Command(
+    target = ['$out/$variants_out/${variant}_formatted_${ref_name}.csv',
+              '$out/$variants_out/${variant}_${ref_name}.bed'],
+    source = '$out/$variants_out/${variant}_normalized.csv',
+    action = ('python $to_csv $SOURCE ${TARGETS[0]} --formatcsv; '
+              'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
+)
+
+variant_cov_bed, variant_cov_csv = env.Command(
+    target = ['$out/$variants_out/${variant}_genomecov_intersect_${ref_name}.bed',
+              '$out/$variants_out/${variant}_cov_${ref_name}.csv'],
+    source = ['$out/$variants_out/${variant}_formatted_${ref_name}.csv',
+              '$out/$variants_out/${variant}_${ref_name}.bed',
               genome_cov],
     action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -wo > ${TARGETS[0]}; '
               'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
