@@ -607,10 +607,10 @@ for specimen_id, metadata in specimens.items():
                   'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
     )
 
-    '''
+    
 # ################## DiscoSnp ###################
 
-    ref_fof = e.Command(
+    ref_fof = env.Command(
         target = '$out/$called_out/$discosnp_out/${ref_name}_fof.txt',
         source = None,
         action = ('echo ${cwd}/${out}/${reads_out}/${ref_name}.R1.trimmed.fq.gz > $TARGET; '
@@ -717,7 +717,7 @@ for specimen_id, metadata in specimens.items():
                   'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
     )
 
-    '''
+    
 # ################### VarDict ####################
     
     bedfile = e.Command(
