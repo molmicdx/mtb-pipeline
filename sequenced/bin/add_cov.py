@@ -1,12 +1,14 @@
 import argparse
 import csv
 import sys
+import numpy as np
 
 parser = argparse.ArgumentParser(description='Add read depth to variants csv file. Input bed file is produced by bedtools from the intersection of variants bed and genome coverage bed files, with number of bp overlap in the final column')
 
 parser.add_argument('variants_bed', type=argparse.FileType('r'), help='variant bed file with genome coverage information')
 parser.add_argument('variants_csv', type=argparse.FileType('r'), help='csv file of variants')
 parser.add_argument('variants_cov', type=argparse.FileType('w'), help='output csv with variants and average read depths (i.e. BAM_DP)')
+parser.add_argument('--summstats_csv', type=argparse.FileType('w'), default=None, help='output csv with read depths summary statistics (i.e. BAM_DP')
 parser.add_argument('--bam_dp_out', type=argparse.FileType('w'), default=None, help='output csv with positions, entry or mutation type, and average read depths (i.e. BAM_DP)')
 
 def get_read_depths(var_bed_in):
@@ -14,7 +16,7 @@ def get_read_depths(var_bed_in):
     mutation_bed = next(var_reader, None)
     cov_along_mutation = {}
     while mutation_bed:
-        # cov dictionary key is (chromStart + 1): value is list of tuples of (read depth, number of bps, left flank chromStart, right flank chromStart).
+        # cov dictionary key is (chromStart + 1): value is list of tuples of (read depth, number of bps, left flank chromStart, right flank chromStart, mutation type).
         # BED uses zero-based positions, VCF (and variants.py generated files) uses 1-based positions
         csv_POS = int(mutation_bed[1]) + 1
         read_depth = int(mutation_bed[-2])
@@ -28,6 +30,38 @@ def get_read_depths(var_bed_in):
             cov_along_mutation[csv_POS] = [(read_depth, num_bp, lflankpos, rflankpos, entry_type)]
         mutation_bed = next(csv.reader(var_bed_in, delimiter='\t'), None)
     return cov_along_mutation
+
+def get_summstats(read_depth_list):
+    read_depths = []
+    for entry in read_depth_list:
+        read_depths += [entry[0]] * entry[1]
+    min_bam_dp = min(read_depths)
+    max_bam_dp = max(read_depths)
+    mean_bam_dp = round(np.mean(read_depths))
+    sd_bam_dp = round(np.std(read_depths),2)
+    qt_bam_dp = np.quantile(read_depths, [0.25, 0.5, 0.75])
+    return min_bam_dp, max_bam_dp, mean_bam_dp, sd_bam_dp, qt_bam_dp
+
+def write_summstats(loci_cov, summstats_csv):
+    loci_summstat = {}
+    for pos in loci_cov.keys():
+        loci_summstat[pos] = [get_summstats(loci_cov[pos]), loci_cov[pos][0][-1]]
+    fieldnames = ['POS','TYPE','MIN_BAM_DP','MAX_BAM_DP','BAM_DP','SD_BAM_DP','1QT_BAM_DP','MED_BAM_DP','3QT_BAM_DP']
+    writer = csv.DictWriter(summstats_csv, fieldnames=fieldnames)
+    writer.writeheader()
+    for pos in loci_summstat.keys():
+        locus = {}
+        locus['POS'] = pos
+        locus['TYPE'] = loci_summstat[pos][-1]
+        locus['MIN_BAM_DP'] = loci_summstat[pos][0][0]
+        locus['MAX_BAM_DP'] = loci_summstat[pos][0][1]
+        locus['BAM_DP'] = loci_summstat[pos][0][2]
+        locus['SD_BAM_DP'] = loci_summstat[pos][0][3]
+        locus['1QT_BAM_DP'] = loci_summstat[pos][0][4][0]
+        locus['MED_BAM_DP'] = loci_summstat[pos][0][4][1]
+        locus['3QT_BAM_DP'] = loci_summstat[pos][0][4][2]
+        writer.writerow(locus)
+    return
 
 def calculate_bam_dp(read_depth_list):
     read_depths_sum = 0
@@ -59,6 +93,7 @@ def get_variants_bam_dp(cov_along_mutation, var_bed_in):
                     #print(lflankpos, rflankpos, left_bam_dp, right_bam_dp)
                 break
     return variants_bam_dp
+
 
 def write_cov_to_csv(var_bam_dp, var_csv_in, cov_csv_out):
     variants_reader = csv.DictReader(var_csv_in)
@@ -100,6 +135,8 @@ def main():
     if args.bam_dp_out != None:
         original_bam_dp = get_original_bam_dp(cov_at_mutation_pos, args.variants_bed)
         write_original_bam_dp(original_bam_dp, args.bam_dp_out)
+    if args.summstats_csv != None:
+        write_summstats(cov_at_mutation_pos, args.summstats_csv)
 
 if __name__ == '__main__':
     sys.exit(main())
