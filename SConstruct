@@ -18,10 +18,10 @@ samtools_img = config.get('singularity', 'samtools')
 bcftools_img = config.get('singularity', 'bcftools')
 bedtools_img = config.get('singularity', 'bedtools')
 discosnp_img = config.get('singularity', 'discosnp')
+freebayes_img = config.get('singularity', 'freebayes')
+deepvariant_img = config.get('singularity', 'deepvariant')
 delly_img = config.get('singularity', 'delly')
 docker = config.get('docker', 'docker')
-freebayes_img = config.get('docker', 'freebayes')
-deepvariant_img = config.get('singularity', 'deepvariant')
 vardict_img = config.get('docker', 'vardict')
 
 from SCons.Script import (Environment, Variables, Help, Decider)
@@ -124,7 +124,8 @@ env = Environment(
     bedtools = '{} exec -B $cwd {} bedtools'.format(singularity, bedtools_img),
     discosnp = '{} run --pwd $cwd -B $cwd {}'.format(singularity, discosnp_img),
     delly = '{} exec -B $cwd {} delly'.format(singularity, delly_img),
-    freebayes = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} freebayes'.format(docker, freebayes_img),
+    freebayes = '{} exec -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} freebayes'.format(singularity, freebayes_img),
+    #freebayes = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} freebayes'.format(docker, freebayes_img),
     deepvariant = '{} run -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} /opt/deepvariant/bin/run_deepvariant'.format(singularity, deepvariant_img),
     #deepvariant = '{} run -v $cwd:/input -v $cwd:/output --rm {} /opt/deepvariant/bin/run_deepvariant'.format(docker, deepvariant_img),
     vardict = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} vardict-java'.format(docker, vardict_img)
@@ -429,7 +430,7 @@ bcftools_cov_bed, bcftools_cov_csv = env.Command(
               'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
 )
 
-'''
+
 # ##################### FreeBayes  #######################
 
 freebayes_gvcf = env.Command(
@@ -504,7 +505,7 @@ freebayes_cov_bed, freebayes_cov_csv = env.Command(
     action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -wo > ${TARGETS[0]}; '
               'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
 )
-'''
+
 
 # ################# DeepVariant #################
 
@@ -851,13 +852,13 @@ bcftools_cov_filtered = env.Command(
     source = bcftools_normalized,
     action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
 )
-'''
+
 freebayes_cov_filtered = env.Command(
     target = '$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized_dp${min_read_depth}_${ref_name}.vcf',
     source = freebayes_normalized,
     action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
 )
-'''
+
 deepvariant_cov_filtered = env.Command(
     target = '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_dp${min_read_depth}_${ref_name}.vcf',
     source = deepvariant_pass,
@@ -900,7 +901,7 @@ bcftools_calls = env.Command(
               bcftools_cov_csv],
     action = 'python $check_call $bcftools_out $variant $SOURCES $TARGET'
 )
-'''
+
 freebayes_calls = env.Command(
     target = '$out/$checked_out/$freebayes_out/${variant}_${freebayes_out}_normalized_dp${min_read_depth}_${ref_name}_checked.csv',
     source = [freebayes_cov_filtered,
@@ -908,7 +909,7 @@ freebayes_calls = env.Command(
               freebayes_cov_csv],
     action = 'python $check_call $freebayes_out $variant $SOURCES $TARGET'
 )
-'''
+
 deepvariant_calls = env.Command(
     target = '$out/$checked_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_PASS_dp${min_read_depth}_${ref_name}_checked.csv',
     source = [deepvariant_cov_filtered,
@@ -945,7 +946,7 @@ all_checked_csv = env.Command(
     target = '$out/$checked_out/${variant}_alltools_normalized_dp${min_read_depth}_${ref_name}_checked.csv',
     source = [gatk_calls,
               bcftools_calls,
-              #freebayes_calls,
+              freebayes_calls,
               deepvariant_calls,
               discosnp_calls,
               lancet_calls,
