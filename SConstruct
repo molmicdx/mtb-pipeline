@@ -18,10 +18,10 @@ samtools_img = config.get('singularity', 'samtools')
 bcftools_img = config.get('singularity', 'bcftools')
 bedtools_img = config.get('singularity', 'bedtools')
 discosnp_img = config.get('singularity', 'discosnp')
+freebayes_img = config.get('singularity', 'freebayes')
+deepvariant_img = config.get('singularity', 'deepvariant')
 delly_img = config.get('singularity', 'delly')
 docker = config.get('docker', 'docker')
-freebayes_img = config.get('docker', 'freebayes')
-deepvariant_img = config.get('docker', 'deepvariant')
 vardict_img = config.get('docker', 'vardict')
 
 from SCons.Script import (Environment, Variables, Help, Decider)
@@ -124,13 +124,15 @@ env = Environment(
     bedtools = '{} exec -B $cwd {} bedtools'.format(singularity, bedtools_img),
     discosnp = '{} run --pwd $cwd -B $cwd {}'.format(singularity, discosnp_img),
     delly = '{} exec -B $cwd {} delly'.format(singularity, delly_img),
-    freebayes = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} freebayes'.format(docker, freebayes_img),
-    deepvariant = '{} run -v $cwd:/input -v $cwd:/output --rm {} /opt/deepvariant/bin/run_deepvariant'.format(docker, deepvariant_img),
+    freebayes = '{} exec -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} freebayes'.format(singularity, freebayes_img),
+    #freebayes = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} freebayes'.format(docker, freebayes_img),
+    deepvariant = '{} run -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} /opt/deepvariant/bin/run_deepvariant'.format(singularity, deepvariant_img),
+    #deepvariant = '{} run -v $cwd:/input -v $cwd:/output --rm {} /opt/deepvariant/bin/run_deepvariant'.format(docker, deepvariant_img),
     vardict = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} vardict-java'.format(docker, vardict_img)
 )
 
 # Help(vars.GenerateHelpText(env))
-
+'''
 # ############### start inputs ################
 
 # ######### Index Reference Sequence #########
@@ -208,7 +210,7 @@ R1trimmed, R2trimmed, trimlog  = env.Command(
               '--minimum-length $min_read_len -o ${TARGETS[0]} -p ${TARGETS[1]} $SOURCES '
               '> ${TARGETS[-1]} 2>&1')
 )
-'''
+
 # ################ Map Reads ###################
 
 sam = env.Command(
@@ -274,18 +276,8 @@ variant_cov_bed, variant_cov_csv = env.Command(
     action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -wo > ${TARGETS[0]}; '
               'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
 )
-'''
-
-# ################## Validate BAM #####################
-
-#bamlog = env.Command(
-#    target = '$out/$deduped_out/${variant}_deduped_mq_validatebam.log',
-#    source = mq_filtered_bam,
-#    action = '$gatk ValidateSamFile -I $SOURCE --MODE SUMMARY > $TARGET 2>&1'
-#)
 
 # ############### end inputs ##################
-
 
 # ################# Call Variants #####################
 
@@ -523,9 +515,9 @@ deepvariant_gvcf, deepvariant_vcf, deepvariant_log = env.Command(
               '$log/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_${ref_name}.log'],
     source = ['$reference',
               mq_filtered_bam],
-    action = ('$deepvariant --model_type=WGS --ref=/input/${SOURCES[0]} --reads=/input/${SOURCES[1]} '
-              '--output_gvcf=/output/${TARGETS[0]} --output_vcf=/output/${TARGETS[1]} --num_shards=$max_threads '
-              '--logging_dir=/output/$log/$called_out/${deepvariant_out}/ > ${TARGETS[-1]} 2>&1')
+    action = ('$deepvariant --model_type=WGS --ref=${SOURCES[0]} --reads=${SOURCES[1]} '
+              '--output_gvcf=${TARGETS[0]} --output_vcf=${TARGETS[1]} --num_shards=$max_threads '
+              '--logging_dir=$log/$called_out/${deepvariant_out}/ > ${TARGETS[-1]} 2>&1')
 )
 
 deepvariant_g_normalized, deepvariant_g_norm_log = env.Command(
@@ -596,7 +588,7 @@ lancet_vcf, lancet_log = env.Command(
               '$log/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}.log'],
     source = ['$reference',
               mq_filtered_bam,
-              '$out/$deduped_out/${ref_name}_deduped_mq.bam'],
+              '$out/$deduped_out/${ref_name}_deduped_mq_${ref_name}.bam'],
     action = ('./bin/lancet --tumor ${SOURCES[1]} --normal ${SOURCES[2]} --ref ${SOURCES[0]} '
               '--reg $accession --min-vaf-tumor $allele_fraction --low-cov $min_read_depth '
               '--num-threads $max_threads --print-config-file > ${TARGETS[0]} 2>${TARGETS[-1]}')
@@ -962,4 +954,4 @@ all_checked_csv = env.Command(
     action = ('echo \'CHROM,POS,REF,ALT,TYPE,INS_TYPE,LEN,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,ZYG,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG\' > $TARGET; '
               'cat $SOURCES | sed \'/CHROM,POS,REF,ALT,TYPE,INS_TYPE,LEN,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,ZYG,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG/d\' >> $TARGET')
 )
-'''
+
