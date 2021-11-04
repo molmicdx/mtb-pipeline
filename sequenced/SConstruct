@@ -23,7 +23,7 @@ discosnp_img = config.get('singularity', 'discosnp')
 delly_img = config.get('singularity', 'delly')
 docker = config.get('docker', 'docker')
 freebayes_img = config.get('docker', 'freebayes')
-deepvariant_img = config.get('docker', 'deepvariant')
+deepvariant_img = config.get('singularity', 'deepvariant')
 vardict_img = config.get('docker', 'vardict')
 
 from SCons.Script import (Environment, Variables, Help, Decider)
@@ -121,7 +121,8 @@ env = Environment(
     discosnp = '{} run --pwd $cwd -B $cwd {}'.format(singularity, discosnp_img),
     delly = '{} exec -B $cwd {} delly'.format(singularity, delly_img),
     freebayes = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} freebayes'.format(docker, freebayes_img),
-    deepvariant = '{} run -v $cwd:/input -v $cwd:/output --rm {} /opt/deepvariant/bin/run_deepvariant'.format(docker, deepvariant_img),
+    deepvariant = '{} run -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} /opt/deepvariant/bin/run_deepvariant'.format(singularity, deepvariant_img),
+    #deepvariant = '{} run -v $cwd:/input -v $cwd:/output --rm {} /opt/deepvariant/bin/run_deepvariant'.format(docker, deepvariant_img),
     vardict = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} vardict-java'.format(docker, vardict_img)
 )
 
@@ -460,9 +461,9 @@ for specimen_id, metadata in specimens.items():
                   '$log/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_${ref_name}.log'],
         source = ['$reference',
                   mq_filtered_bam],
-        action = ('$deepvariant --model_type=WGS --ref=/input/${SOURCES[0]} --reads=/input/${SOURCES[1]} '
-                  '--output_gvcf=/output/${TARGETS[0]} --output_vcf=/output/${TARGETS[1]} --num_shards=$max_threads '
-                  '--logging_dir=/output/$log/$called_out/${deepvariant_out}/ > ${TARGETS[-1]} 2>&1')
+        action = ('$deepvariant --model_type=WGS --ref=${SOURCES[0]} --reads=${SOURCES[1]} '
+                  '--output_gvcf=${TARGETS[0]} --output_vcf=${TARGETS[1]} --num_shards=$max_threads '
+                  '--logging_dir=$log/$called_out/${deepvariant_out}/ > ${TARGETS[-1]} 2>&1')
     )
 
     deepvariant_g_normalized, deepvariant_g_norm_log = e.Command(

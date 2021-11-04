@@ -21,7 +21,7 @@ discosnp_img = config.get('singularity', 'discosnp')
 delly_img = config.get('singularity', 'delly')
 docker = config.get('docker', 'docker')
 freebayes_img = config.get('docker', 'freebayes')
-deepvariant_img = config.get('docker', 'deepvariant')
+deepvariant_img = config.get('singularity', 'deepvariant')
 vardict_img = config.get('docker', 'vardict')
 
 from SCons.Script import (Environment, Variables, Help, Decider)
@@ -125,12 +125,13 @@ env = Environment(
     discosnp = '{} run --pwd $cwd -B $cwd {}'.format(singularity, discosnp_img),
     delly = '{} exec -B $cwd {} delly'.format(singularity, delly_img),
     freebayes = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} freebayes'.format(docker, freebayes_img),
-    deepvariant = '{} run -v $cwd:/input -v $cwd:/output --rm {} /opt/deepvariant/bin/run_deepvariant'.format(docker, deepvariant_img),
+    deepvariant = '{} run -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} /opt/deepvariant/bin/run_deepvariant'.format(singularity, deepvariant_img),
+    #deepvariant = '{} run -v $cwd:/input -v $cwd:/output --rm {} /opt/deepvariant/bin/run_deepvariant'.format(docker, deepvariant_img),
     vardict = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} vardict-java'.format(docker, vardict_img)
 )
 
 # Help(vars.GenerateHelpText(env))
-
+'''
 # ############### start inputs ################
 
 # ######### Index Reference Sequence #########
@@ -208,7 +209,7 @@ R1trimmed, R2trimmed, trimlog  = env.Command(
               '--minimum-length $min_read_len -o ${TARGETS[0]} -p ${TARGETS[1]} $SOURCES '
               '> ${TARGETS[-1]} 2>&1')
 )
-'''
+
 # ################ Map Reads ###################
 
 sam = env.Command(
@@ -274,18 +275,8 @@ variant_cov_bed, variant_cov_csv = env.Command(
     action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -wo > ${TARGETS[0]}; '
               'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
 )
-'''
-
-# ################## Validate BAM #####################
-
-#bamlog = env.Command(
-#    target = '$out/$deduped_out/${variant}_deduped_mq_validatebam.log',
-#    source = mq_filtered_bam,
-#    action = '$gatk ValidateSamFile -I $SOURCE --MODE SUMMARY > $TARGET 2>&1'
-#)
 
 # ############### end inputs ##################
-
 
 # ################# Call Variants #####################
 
@@ -438,7 +429,7 @@ bcftools_cov_bed, bcftools_cov_csv = env.Command(
               'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
 )
 
-
+'''
 # ##################### FreeBayes  #######################
 
 freebayes_gvcf = env.Command(
@@ -513,7 +504,7 @@ freebayes_cov_bed, freebayes_cov_csv = env.Command(
     action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -wo > ${TARGETS[0]}; '
               'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
 )
-
+'''
 
 # ################# DeepVariant #################
 
@@ -523,9 +514,9 @@ deepvariant_gvcf, deepvariant_vcf, deepvariant_log = env.Command(
               '$log/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_${ref_name}.log'],
     source = ['$reference',
               mq_filtered_bam],
-    action = ('$deepvariant --model_type=WGS --ref=/input/${SOURCES[0]} --reads=/input/${SOURCES[1]} '
-              '--output_gvcf=/output/${TARGETS[0]} --output_vcf=/output/${TARGETS[1]} --num_shards=$max_threads '
-              '--logging_dir=/output/$log/$called_out/${deepvariant_out}/ > ${TARGETS[-1]} 2>&1')
+    action = ('$deepvariant --model_type=WGS --ref=${SOURCES[0]} --reads=${SOURCES[1]} '
+              '--output_gvcf=${TARGETS[0]} --output_vcf=${TARGETS[1]} --num_shards=$max_threads '
+              '--logging_dir=$log/$called_out/${deepvariant_out}/ > ${TARGETS[-1]} 2>&1')
 )
 
 deepvariant_g_normalized, deepvariant_g_norm_log = env.Command(
@@ -596,7 +587,7 @@ lancet_vcf, lancet_log = env.Command(
               '$log/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}.log'],
     source = ['$reference',
               mq_filtered_bam,
-              '$out/$deduped_out/${ref_name}_deduped_mq.bam'],
+              '$out/$deduped_out/${ref_name}_deduped_mq_${ref_name}.bam'],
     action = ('./bin/lancet --tumor ${SOURCES[1]} --normal ${SOURCES[2]} --ref ${SOURCES[0]} '
               '--reg $accession --min-vaf-tumor $allele_fraction --low-cov $min_read_depth '
               '--num-threads $max_threads --print-config-file > ${TARGETS[0]} 2>${TARGETS[-1]}')
@@ -860,13 +851,13 @@ bcftools_cov_filtered = env.Command(
     source = bcftools_normalized,
     action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
 )
-
+'''
 freebayes_cov_filtered = env.Command(
     target = '$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized_dp${min_read_depth}_${ref_name}.vcf',
     source = freebayes_normalized,
     action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
 )
-
+'''
 deepvariant_cov_filtered = env.Command(
     target = '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_dp${min_read_depth}_${ref_name}.vcf',
     source = deepvariant_pass,
@@ -909,7 +900,7 @@ bcftools_calls = env.Command(
               bcftools_cov_csv],
     action = 'python $check_call $bcftools_out $variant $SOURCES $TARGET'
 )
-
+'''
 freebayes_calls = env.Command(
     target = '$out/$checked_out/$freebayes_out/${variant}_${freebayes_out}_normalized_dp${min_read_depth}_${ref_name}_checked.csv',
     source = [freebayes_cov_filtered,
@@ -917,7 +908,7 @@ freebayes_calls = env.Command(
               freebayes_cov_csv],
     action = 'python $check_call $freebayes_out $variant $SOURCES $TARGET'
 )
-
+'''
 deepvariant_calls = env.Command(
     target = '$out/$checked_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_PASS_dp${min_read_depth}_${ref_name}_checked.csv',
     source = [deepvariant_cov_filtered,
@@ -954,7 +945,7 @@ all_checked_csv = env.Command(
     target = '$out/$checked_out/${variant}_alltools_normalized_dp${min_read_depth}_${ref_name}_checked.csv',
     source = [gatk_calls,
               bcftools_calls,
-              freebayes_calls,
+              #freebayes_calls,
               deepvariant_calls,
               discosnp_calls,
               lancet_calls,
@@ -962,4 +953,4 @@ all_checked_csv = env.Command(
     action = ('echo \'CHROM,POS,REF,ALT,TYPE,INS_TYPE,LEN,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,ZYG,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG\' > $TARGET; '
               'cat $SOURCES | sed \'/CHROM,POS,REF,ALT,TYPE,INS_TYPE,LEN,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,ZYG,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG/d\' >> $TARGET')
 )
-'''
+
