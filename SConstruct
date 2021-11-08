@@ -20,9 +20,10 @@ bedtools_img = config.get('singularity', 'bedtools')
 discosnp_img = config.get('singularity', 'discosnp')
 freebayes_img = config.get('singularity', 'freebayes')
 deepvariant_img = config.get('singularity', 'deepvariant')
+vardict_img = config.get('singularity', 'vardict')
+lancet_img = config.get('singularity', 'lancet')
 delly_img = config.get('singularity', 'delly')
 docker = config.get('docker', 'docker')
-vardict_img = config.get('docker', 'vardict')
 
 from SCons.Script import (Environment, Variables, Help, Decider)
 
@@ -128,7 +129,9 @@ env = Environment(
     #freebayes = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} freebayes'.format(docker, freebayes_img),
     deepvariant = '{} run -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} /opt/deepvariant/bin/run_deepvariant'.format(singularity, deepvariant_img),
     #deepvariant = '{} run -v $cwd:/input -v $cwd:/output --rm {} /opt/deepvariant/bin/run_deepvariant'.format(docker, deepvariant_img),
-    vardict = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} vardict-java'.format(docker, vardict_img)
+    lancet = '{} exec -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} lancet'.format(singularity, lancet_img),
+    vardict = '{} exec -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} vardict-java'.format(singularity, vardict_img)
+    #vardict = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} vardict-java'.format(docker, vardict_img)
 )
 
 # Help(vars.GenerateHelpText(env))
@@ -589,7 +592,7 @@ lancet_vcf, lancet_log = env.Command(
     source = ['$reference',
               mq_filtered_bam,
               '$out/$deduped_out/${ref_name}_deduped_mq_${ref_name}.bam'],
-    action = ('./bin/lancet --tumor ${SOURCES[1]} --normal ${SOURCES[2]} --ref ${SOURCES[0]} '
+    action = ('$lancet --tumor ${SOURCES[1]} --normal ${SOURCES[2]} --ref ${SOURCES[0]} '
               '--reg $accession --min-vaf-tumor $allele_fraction --low-cov $min_read_depth '
               '--num-threads $max_threads --print-config-file > ${TARGETS[0]} 2>${TARGETS[-1]}')
 )
