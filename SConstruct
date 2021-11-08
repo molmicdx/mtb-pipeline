@@ -18,11 +18,12 @@ samtools_img = config.get('singularity', 'samtools')
 bcftools_img = config.get('singularity', 'bcftools')
 bedtools_img = config.get('singularity', 'bedtools')
 discosnp_img = config.get('singularity', 'discosnp')
-docker = config.get('docker', 'docker')
-freebayes_img = config.get('docker', 'freebayes')
-deepvariant_img = config.get('docker', 'deepvariant')
+freebayes_img = config.get('singularity', 'freebayes')
+deepvariant_img = config.get('singularity', 'deepvariant')
+vardict_img = config.get('singularity', 'vardict')
+lancet_img = config.get('singularity', 'lancet')
 delly_img = config.get('singularity', 'delly')
-vardict_img = config.get('docker', 'vardict')
+docker = config.get('docker', 'docker')
 
 from SCons.Script import (Environment, Variables, Help, Decider)
 
@@ -107,31 +108,58 @@ env = Environment(
     rg_pl = config.get('read_mapping', 'read_group_PL'),
     rg_pu = config.get('read_mapping', 'read_group_PU'),
     mapq = config.get('read_mapping', 'min_mapq'),
-    bgz_out = config.get('output', 'bgzipped'),
-    igv_out = config.get('output', 'igv_reports'),
-    igv_info = config.get('report', 'igv_info'),
-    igv_flank = config.get('report', 'igv_flanking_sites'),
     checked_out = config.get('output', 'checked'),
     check_call = config.get('report', 'checker_script'),
     min_read_depth = config.get('report', 'filter_read_depth'),
     mutation_to_flank = config.get('report', 'ignore_cov_on_mutation'), 
     num_flanking_bp = config.get('report', 'num_flanking_bp_to_use'),
+    bgz_out = config.get('output', 'bgzipped'),
+    igv_out = config.get('output', 'igv_reports'),
+    igv_info = config.get('report', 'igv_info'),
+    igv_flank = config.get('report', 'igv_flanking_sites'),
     gatk = '{} exec -B $cwd {} gatk'.format(singularity, gatk_img),
     cutadapt = '{} exec -B $cwd {} cutadapt'.format(singularity, cutadapt_img),
-    bwa = '{} exec -B $cwd {} bwa mem'.format(singularity, bwa_img),
+    bwa = '{} exec -B $cwd {} bwa'.format(singularity, bwa_img),
     samtools = '{} exec -B $cwd {} samtools'.format(singularity, samtools_img),
     bcftools = '{} exec -B $cwd {}'.format(singularity, bcftools_img),
     bedtools = '{} exec -B $cwd {} bedtools'.format(singularity, bedtools_img),
     discosnp = '{} run --pwd $cwd -B $cwd {}'.format(singularity, discosnp_img),
     delly = '{} exec -B $cwd {} delly'.format(singularity, delly_img),
-    freebayes = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} freebayes'.format(docker, freebayes_img),
-    deepvariant = '{} run -v $cwd:/input -v $cwd:/output --rm {} /opt/deepvariant/bin/run_deepvariant'.format(docker, deepvariant_img),
-    vardict = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} vardict-java'.format(docker, vardict_img)
+    freebayes = '{} exec -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} freebayes'.format(singularity, freebayes_img),
+    #freebayes = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} freebayes'.format(docker, freebayes_img),
+    deepvariant = '{} run -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} /opt/deepvariant/bin/run_deepvariant'.format(singularity, deepvariant_img),
+    #deepvariant = '{} run -v $cwd:/input -v $cwd:/output --rm {} /opt/deepvariant/bin/run_deepvariant'.format(docker, deepvariant_img),
+    lancet = '{} exec -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} lancet'.format(singularity, lancet_img),
+    vardict = '{} exec -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} vardict-java'.format(singularity, vardict_img)
+    #vardict = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} vardict-java'.format(docker, vardict_img)
 )
 
 # Help(vars.GenerateHelpText(env))
-
+'''
 # ############### start inputs ################
+
+# ######### Index Reference Sequence #########
+
+fa_index = env.Command(
+    target = '${reference}.fai',
+    source = '$reference',
+    action = '$samtools faidx $SOURCE'
+)
+
+bwa_idx = env.Command(
+    target = '${reference}.bwt',
+    source = '$reference',
+    action = '$bwa index $SOURCE'
+)
+
+# ######## Create Reference Seq Dictionary ########
+
+ref_dict = env.Command(
+    target = 'data/${ref_name}.dict',
+    source = '$reference',
+    action = '$gatk CreateSequenceDictionary -R $SOURCE'
+)
+'''
 # ############# Simulate Variants #############
 simulated_variants_table, simulated_variants_fa = env.Command(
     target = ['$out/$variants_out/${variant}.txt', 
@@ -144,7 +172,7 @@ simulated_variants_table, simulated_variants_fa = env.Command(
 # ############# Normalize Variant VCF ###############
 simulated_variant_vcf = env.Command(
     target = '$out/$variants_out/${variant}.txt.vcf',
-    source = simulated_variants_table,
+    source = '$out/$variants_out/${variant}.txt',
     action = 'python bin/to_vcf.py $SOURCE $variant'
 )
 
@@ -161,7 +189,7 @@ sim_R1, sim_R2, simreads_log = env.Command(
     target = ['$out/$reads_out/${variant}_R1.fq', 
               '$out/$reads_out/${variant}_R2.fq', 
               '$log/$reads_out/${variant}_art_illumina.log'],
-    source = simulated_variants_fa,
+    source = '$out/$variants_out/${variant}.fa',
     action = ('./${venv_config}/bin/art_illumina -1 $read1_q -2 $read2_q -p -sam '
               '-i $SOURCE -l $read_len -f $read_depth -m $frag_len -s $sd '
               '-o $out/$reads_out/${variant}_R > ${TARGETS[-1]} 2>&1')
@@ -173,6 +201,7 @@ gzsimR1, gzsimR2 = env.Command(
     source = [sim_R1, sim_R2],
     action = ('gzip $SOURCES --keep')
 )
+
 
 # ############## Trim NGS Reads ################
 R1trimmed, R2trimmed, trimlog  = env.Command(
@@ -188,25 +217,27 @@ R1trimmed, R2trimmed, trimlog  = env.Command(
 # ################ Map Reads ###################
 
 sam = env.Command(
-    target = ['$out/$mapped_out/${variant}_trimmed.sam',
-              '$log/$mapped_out/${variant}_trimmed_mapped.log'],
-    source = ['$reference', R1trimmed, R2trimmed],
-    action = ('$bwa $SOURCES -K $bwa_k '
+    target = ['$out/$mapped_out/${variant}_trimmed_${ref_name}.sam',
+              '$log/$mapped_out/${variant}_trimmed_mapped_${ref_name}.log'],
+    source = ['$reference', 
+              '$out/$reads_out/${variant}.R1.trimmed.fq.gz', 
+              '$out/$reads_out/${variant}.R2.trimmed.fq.gz'],
+    action = ('$bwa mem $SOURCES -K $bwa_k '
               '-R \'@RG\\tID:${variant}\\tLB:LB_${variant}\\tPL:${rg_pl}\\tPU:${rg_pu}\\tSM:${variant}\' '
               '> ${TARGETS[0]} 2>${TARGETS[-1]}')
 )
 
 sorted_bam = env.Command(
-    target = '$out/$mapped_out/${variant}_trimmed-sorted.bam',
+    target = '$out/$mapped_out/${variant}_trimmed-sorted_${ref_name}.bam',
     source = sam,
-    action = '$samtools sort $SOURCE $out/$mapped_out/${variant}_trimmed-sorted'
+    action = '$samtools sort $SOURCE $out/$mapped_out/${variant}_trimmed-sorted_${ref_name}'
 )
 
 # ############## Remove Duplicate Reads ###############
 deduped, deduped_metrics, deduped_log = env.Command(
-    target = ['$out/$deduped_out/${variant}_deduped.bam', 
-              '$out/$deduped_out/${variant}_deduped_metrics.txt',
-              '$log/$deduped_out/${variant}_deduped.log'],
+    target = ['$out/$deduped_out/${variant}_deduped_${ref_name}.bam', 
+              '$out/$deduped_out/${variant}_deduped_metrics_${ref_name}.txt',
+              '$log/$deduped_out/${variant}_deduped_${ref_name}.log'],
     source = sorted_bam,
     action = ('$gatk MarkDuplicates -I $SOURCE -O ${TARGETS[0]} -M ${TARGETS[1]} --REMOVE_DUPLICATES TRUE '
               '> ${TARGETS[-1]} 2>&1')
@@ -215,37 +246,49 @@ deduped, deduped_metrics, deduped_log = env.Command(
 # ################### Filter Reads, Get BAM Read Depths ####################
 
 mq_filtered_bam, indexed_bam = env.Command(
-    target = ['$out/$deduped_out/${variant}_deduped_mq.bam',
-              '$out/$deduped_out/${variant}_deduped_mq.bam.bai'],
+    target = ['$out/$deduped_out/${variant}_deduped_mq_${ref_name}.bam',
+              '$out/$deduped_out/${variant}_deduped_mq_${ref_name}.bam.bai'],
     source = deduped,
     action = ('$samtools view $SOURCE -q $mapq -bo ${TARGETS[0]}; '
               '$samtools index ${TARGETS[0]}')
 )
 
 genome_cov = env.Command(
-    target = '$out/$variants_out/${variant}_deduped_mq10_genomecov.bed',
+    target = '$out/$variants_out/${variant}_deduped_mq10_genomecov_${ref_name}.bed',
     source = mq_filtered_bam,
     action = '$bedtools genomecov -ibam $SOURCE -bga > $TARGET'
 )
 
-# ################## Validate BAM #####################
 
-#bamlog = env.Command(
-#    target = '$out/$deduped_out/${variant}_deduped_mq_validatebam.log',
-#    source = mq_filtered_bam,
-#    action = '$gatk ValidateSamFile -I $SOURCE --MODE SUMMARY > $TARGET 2>&1'
-#)
+# ############### Get Variant Coverage ################
+
+variant_formatted_csv, variant_bed = env.Command(
+    target = ['$out/$variants_out/${variant}_formatted_${ref_name}.csv',
+              '$out/$variants_out/${variant}_${ref_name}.bed'],
+    source = '$out/$variants_out/${variant}_normalized.vcf',
+    action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
+              'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
+)
+
+variant_cov_bed, variant_cov_csv = env.Command(
+    target = ['$out/$variants_out/${variant}_genomecov_intersect_${ref_name}.bed',
+              '$out/$variants_out/${variant}_cov_${ref_name}.csv'],
+    source = [variant_formatted_csv,
+              variant_bed,
+              genome_cov],
+    action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -wo > ${TARGETS[0]}; '
+              'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
+)
 
 # ############### end inputs ##################
-
 
 # ################# Call Variants #####################
 
 # ##################### GATK ##########################
 
 gatk_gvcf, gatk_log = env.Command(
-    target = ['$out/$called_out/$gvcf_out/${variant}_${gatk_out}.g.vcf',
-              '$log/$called_out/$gvcf_out/${variant}_${gatk_out}_haplotypecaller.log'],
+    target = ['$out/$called_out/$gvcf_out/${variant}_${gatk_out}_${ref_name}.g.vcf',
+              '$log/$called_out/$gvcf_out/${variant}_${gatk_out}_haplotypecaller_${ref_name}.log'],
     source = ['$reference',
               mq_filtered_bam,
               indexed_bam],
@@ -254,8 +297,8 @@ gatk_gvcf, gatk_log = env.Command(
 )
 
 gatk_gt, gatk_gt_log = env.Command(
-    target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}.vcf',
-              '$log/$called_out/$gatk_out/${variant}_${gatk_out}_genotypegvcfs.log'],
+    target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}_${ref_name}.vcf',
+              '$log/$called_out/$gatk_out/${variant}_${gatk_out}_genotypegvcfs_${ref_name}.log'],
     source = ['$reference',
               gatk_gvcf],
     action = ('$gatk GenotypeGVCFs -R ${SOURCES[0]} -V ${SOURCES[1]} '
@@ -263,8 +306,8 @@ gatk_gt, gatk_gt_log = env.Command(
 )
 
 gatk_g_normalized, gatk_g_norm_log = env.Command(
-    target = ['$out/$called_out/$gvcf_out/${variant}_${gatk_out}_normalized.g.vcf',
-              '$log/$called_out/$gvcf_out/${variant}_${gatk_out}_normalized.g.log'],
+    target = ['$out/$called_out/$gvcf_out/${variant}_${gatk_out}_normalized_${ref_name}.g.vcf',
+              '$log/$called_out/$gvcf_out/${variant}_${gatk_out}_normalized_${ref_name}.g.log'],
     source = ['$reference',
               gatk_gvcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
@@ -272,8 +315,8 @@ gatk_g_normalized, gatk_g_norm_log = env.Command(
 )
 
 gatk_normalized, gatk_norm_log = env.Command(
-    target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized.vcf',
-              '$log/$called_out/$gatk_out/${variant}_${gatk_out}_normalized.log'],
+    target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_${ref_name}.vcf',
+              '$log/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_${ref_name}.log'],
     source = ['$reference',
               gatk_gt],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
@@ -281,15 +324,15 @@ gatk_normalized, gatk_norm_log = env.Command(
 )
 
 gatk_bgz = env.Command(
-    target = '$out/$bgz_out/$gatk_out/${variant}_${gatk_out}_normalized.vcf.gz',
+    target = '$out/$bgz_out/$gatk_out/${variant}_${gatk_out}_normalized_${ref_name}.vcf.gz',
     source = gatk_normalized,
     action = 'bgzip < $SOURCE > $TARGET'
 )
 
 gatk_tbi, gatk_igv, gatk_igv_log = env.Command(
-    target = ['$out/$bgz_out/$gatk_out/${variant}_${gatk_out}_normalized.vcf.gz.tbi',
-              '$out/$igv_out/$gatk_out/${variant}_${gatk_out}_igv.html',
-              '$log/$igv_out/$gatk_out/${variant}_${gatk_out}_igv.log'],
+    target = ['$out/$bgz_out/$gatk_out/${variant}_${gatk_out}_normalized_${ref_name}.vcf.gz.tbi',
+              '$out/$igv_out/$gatk_out/${variant}_${gatk_out}_igv_${ref_name}.html',
+              '$log/$igv_out/$gatk_out/${variant}_${gatk_out}_igv_${ref_name}.log'],
     source = [gatk_bgz,
               '$reference',
               mq_filtered_bam],
@@ -298,15 +341,16 @@ gatk_tbi, gatk_igv, gatk_igv_log = env.Command(
 )
 
 gatk_csv, gatk_bed = env.Command(
-    target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized.vcf.csv',
-              '$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized.vcf.csv.bed'],
+    target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_${ref_name}.vcf.csv',
+              '$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_${ref_name}.vcf.csv.bed'],
     source = gatk_normalized,
     action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
               'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
 )
+
 gatk_cov_bed, gatk_cov_csv = env.Command(
-    target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_genomecov_intersect.bed',
-              '$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_cov.csv'],
+    target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_genomecov_intersect_${ref_name}.bed',
+              '$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_cov_${ref_name}.csv'],
     source = [gatk_csv,
               gatk_bed,
               genome_cov],
@@ -318,17 +362,17 @@ gatk_cov_bed, gatk_cov_csv = env.Command(
 # ##################### bcftools #######################
 
 bcftools_gvcf = env.Command(
-    target = '$out/$called_out/$gvcf_out/${variant}_${bcftools_out}.g.vcf',
+    target = '$out/$called_out/$gvcf_out/${variant}_${bcftools_out}_${ref_name}.g.vcf',
     source = ['$reference',
               mq_filtered_bam],
-    action = ('$bcftools bcftools mpileup -Ou -f $SOURCES -d $max_reads -a $bcftools_ann 2>$log/$called_out/$gvcf_out/${variant}_${bcftools_out}.log | '
-              'bcftools call -Ov -m --gvcf 1 --ploidy-file $ploidy_file -o $TARGET 2>>$log/$called_out/$gvcf_out/${variant}_${bcftools_out}.log')
+    action = ('$bcftools bcftools mpileup -Ou -f $SOURCES -d $max_reads -a $bcftools_ann 2>$log/$called_out/$gvcf_out/${variant}_${bcftools_out}_${ref_name}.log | '
+              'bcftools call -Ov -m --gvcf 1 --ploidy-file $ploidy_file -o $TARGET 2>>$log/$called_out/$gvcf_out/${variant}_${bcftools_out}_${ref_name}.log')
 )
 
 
 bcftools_g_normalized, bcftools_g_norm_log = env.Command(
-    target = ['$out/$called_out/$gvcf_out/${variant}_${bcftools_out}_normalized.g.vcf',
-              '$log/$called_out/$gvcf_out/${variant}_${bcftools_out}_normalized.g.log'],
+    target = ['$out/$called_out/$gvcf_out/${variant}_${bcftools_out}_normalized_${ref_name}.g.vcf',
+              '$log/$called_out/$gvcf_out/${variant}_${bcftools_out}_normalized_${ref_name}.g.log'],
     source = ['$reference',
               bcftools_gvcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
@@ -337,16 +381,16 @@ bcftools_g_normalized, bcftools_g_norm_log = env.Command(
 
 
 bcftools_vcf = env.Command(
-    target = '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}.vcf',
+    target = '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_${ref_name}.vcf',
     source = ['$reference',
               mq_filtered_bam],
-    action = ('$bcftools bcftools mpileup -Ou -f $SOURCES -d $max_reads -a $bcftools_ann 2>$log/$called_out/$bcftools_out/${variant}_${bcftools_out}.log | '
-              'bcftools call -Ov -mv --ploidy-file $ploidy_file -o $TARGET 2>>$log/$called_out/$bcftools_out/${variant}_${bcftools_out}.log')
+    action = ('$bcftools bcftools mpileup -Ou -f $SOURCES -d $max_reads -a $bcftools_ann 2>$log/$called_out/$bcftools_out/${variant}_${bcftools_out}_${ref_name}.log | '
+              'bcftools call -Ov -mv --ploidy-file $ploidy_file -o $TARGET 2>>$log/$called_out/$bcftools_out/${variant}_${bcftools_out}_${ref_name}.log')
 )
 
 bcftools_normalized, bcftools_norm_log = env.Command(
-    target = ['$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized.vcf',
-              '$log/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized.log'],
+    target = ['$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_${ref_name}.vcf',
+              '$log/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_${ref_name}.log'],
     source = ['$reference',
               bcftools_vcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
@@ -354,15 +398,15 @@ bcftools_normalized, bcftools_norm_log = env.Command(
 )
 
 bcftools_bgz = env.Command(
-    target = '$out/$bgz_out/$bcftools_out/${variant}_${bcftools_out}_normalized.vcf.gz',
+    target = '$out/$bgz_out/$bcftools_out/${variant}_${bcftools_out}_normalized_${ref_name}.vcf.gz',
     source = bcftools_normalized,
     action = 'bgzip < $SOURCE > $TARGET'
 )
 
 bcftools_tbi, bcftools_igv, bcftools_igv_log = env.Command(
-    target = ['$out/$bgz_out/$bcftools_out/${variant}_${bcftools_out}_normalized.vcf.gz.tbi',
-              '$out/$igv_out/$bcftools_out/${variant}_${bcftools_out}_igv.html',
-              '$log/$igv_out/$bcftools_out/${variant}_${bcftools_out}_igv.log'],
+    target = ['$out/$bgz_out/$bcftools_out/${variant}_${bcftools_out}_normalized_${ref_name}.vcf.gz.tbi',
+              '$out/$igv_out/$bcftools_out/${variant}_${bcftools_out}_igv_${ref_name}.html',
+              '$log/$igv_out/$bcftools_out/${variant}_${bcftools_out}_igv_${ref_name}.log'],
     source = [bcftools_bgz,
               '$reference',
               mq_filtered_bam],
@@ -372,16 +416,16 @@ bcftools_tbi, bcftools_igv, bcftools_igv_log = env.Command(
 )
 
 bcftools_csv, bcftools_bed = env.Command(
-    target = ['$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized.vcf.csv',
-              '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized.vcf.csv.bed'],
+    target = ['$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_${ref_name}.vcf.csv',
+              '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_${ref_name}.vcf.csv.bed'],
     source = bcftools_normalized,
     action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
               'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
 )
 
 bcftools_cov_bed, bcftools_cov_csv = env.Command(
-    target = ['$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_genomecov_intersect.bed',
-              '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_cov.csv'],
+    target = ['$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_genomecov_intersect_${ref_name}.bed',
+              '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_cov_${ref_name}.csv'],
     source = [bcftools_csv,
               bcftools_bed,
               genome_cov],
@@ -393,24 +437,27 @@ bcftools_cov_bed, bcftools_cov_csv = env.Command(
 # ##################### FreeBayes  #######################
 
 freebayes_gvcf = env.Command(
-    target = '$out/$called_out/$gvcf_out/${variant}_${freebayes_out}.g.vcf',
+    target = '$out/$called_out/$gvcf_out/${variant}_${freebayes_out}_${ref_name}.g.vcf',
     source = ['$reference',
               mq_filtered_bam],
     action = ('$freebayes -f ${SOURCES[0]} -p $ploidy --min-alternate-fraction $allele_fraction '
               '--gvcf ${SOURCES[1]} > $TARGET')
 )
 
-freebayes_vcf = env.Command(
-    target = '$out/$called_out/$freebayes_out/${variant}_${freebayes_out}.vcf',
+fb_allgt_vcf, freebayes_vcf = env.Command(
+    target = ['$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_allgt_${ref_name}.vcf',
+              '$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_${ref_name}.vcf'],
     source = ['$reference',
               mq_filtered_bam],
     action = ('$freebayes -f ${SOURCES[0]} -p $ploidy --min-alternate-fraction $allele_fraction '
-              '${SOURCES[1]} > $TARGET')
+              '${SOURCES[1]} > ${TARGETS[0]}; '
+              '$bcftools bcftools plugin setGT ${TARGETS[0]} -- -t q -n . -i \'GT="0"\' > tmp.vcf; '
+              '$bcftools bcftools view -g ^miss tmp.vcf > ${TARGETS[1]}')
 )
 
 freebayes_g_normalized, freebayes_g_norm_log = env.Command(
-    target = ['$out/$called_out/$gvcf_out/${variant}_${freebayes_out}_normalized.g.vcf',
-              '$log/$called_out/$gvcf_out/${variant}_${freebayes_out}_normalized.g.log'],
+    target = ['$out/$called_out/$gvcf_out/${variant}_${freebayes_out}_normalized_${ref_name}.g.vcf',
+              '$log/$called_out/$gvcf_out/${variant}_${freebayes_out}_normalized_${ref_name}.g.log'],
     source = ['$reference',
               freebayes_gvcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
@@ -418,8 +465,8 @@ freebayes_g_normalized, freebayes_g_norm_log = env.Command(
 )
 
 freebayes_normalized, freebayes_norm_log = env.Command(
-    target = ['$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized.vcf',
-              '$log/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized.log'],
+    target = ['$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized_${ref_name}.vcf',
+              '$log/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized_${ref_name}.log'],
     source = ['$reference',
               freebayes_vcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
@@ -427,15 +474,15 @@ freebayes_normalized, freebayes_norm_log = env.Command(
 )
 
 freebayes_bgz = env.Command(
-    target = '$out/$bgz_out/$freebayes_out/${variant}_${freebayes_out}_normalized.vcf.gz',
+    target = '$out/$bgz_out/$freebayes_out/${variant}_${freebayes_out}_normalized_${ref_name}.vcf.gz',
     source = freebayes_normalized,
     action = 'bgzip < $SOURCE > $TARGET'
 )
 
 freebayes_tbi, freebayes_igv, freebayes_igv_log = env.Command(
-    target = ['$out/$bgz_out/$freebayes_out/${variant}_${freebayes_out}_normalized.vcf.gz.tbi',
-              '$out/$igv_out/$freebayes_out/${variant}_${freebayes_out}_igv.html',
-              '$log/$igv_out/$freebayes_out/${variant}_${freebayes_out}_igv.log'],
+    target = ['$out/$bgz_out/$freebayes_out/${variant}_${freebayes_out}_normalized_${ref_name}.vcf.gz.tbi',
+              '$out/$igv_out/$freebayes_out/${variant}_${freebayes_out}_igv_${ref_name}.html',
+              '$log/$igv_out/$freebayes_out/${variant}_${freebayes_out}_igv_${ref_name}.log'],
     source = [freebayes_bgz,
               '$reference',
               mq_filtered_bam],
@@ -445,16 +492,16 @@ freebayes_tbi, freebayes_igv, freebayes_igv_log = env.Command(
 )
 
 freebayes_csv, freebayes_bed = env.Command(
-    target = ['$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized.vcf.csv',
-              '$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized.vcf.csv.bed'],
+    target = ['$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized_${ref_name}.vcf.csv',
+              '$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized_${ref_name}.vcf.csv.bed'],
     source = freebayes_normalized,
     action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
               'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
 )
 
 freebayes_cov_bed, freebayes_cov_csv = env.Command(
-    target = ['$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized_genomecov_intersect.bed',
-              '$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized_cov.csv'],
+    target = ['$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized_genomecov_intersect_${ref_name}.bed',
+              '$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized_cov_${ref_name}.csv'],
     source = [freebayes_csv,
               freebayes_bed,
               genome_cov],
@@ -466,19 +513,19 @@ freebayes_cov_bed, freebayes_cov_csv = env.Command(
 # ################# DeepVariant #################
 
 deepvariant_gvcf, deepvariant_vcf, deepvariant_log = env.Command(
-    target = ['$out/$called_out/$gvcf_out/${variant}_${deepvariant_out}.g.vcf',
-              '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}.vcf',
-              '$log/$called_out/$deepvariant_out/${variant}_${deepvariant_out}.log'],
+    target = ['$out/$called_out/$gvcf_out/${variant}_${deepvariant_out}_${ref_name}.g.vcf',
+              '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_${ref_name}.vcf',
+              '$log/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_${ref_name}.log'],
     source = ['$reference',
               mq_filtered_bam],
-    action = ('$deepvariant --model_type=WGS --ref=/input/${SOURCES[0]} --reads=/input/${SOURCES[1]} '
-              '--output_gvcf=/output/${TARGETS[0]} --output_vcf=/output/${TARGETS[1]} --num_shards=$max_threads '
-              '--logging_dir=/output/$log/$called_out/${deepvariant_out}/ > ${TARGETS[-1]} 2>&1')
+    action = ('$deepvariant --model_type=WGS --ref=${SOURCES[0]} --reads=${SOURCES[1]} '
+              '--output_gvcf=${TARGETS[0]} --output_vcf=${TARGETS[1]} --num_shards=$max_threads '
+              '--logging_dir=$log/$called_out/${deepvariant_out}/ > ${TARGETS[-1]} 2>&1')
 )
 
 deepvariant_g_normalized, deepvariant_g_norm_log = env.Command(
-    target = ['$out/$called_out/$gvcf_out/${variant}_${deepvariant_out}_normalized.g.vcf',
-              '$log/$called_out/$gvcf_out/${variant}_${deepvariant_out}_normalized.g.log'],
+    target = ['$out/$called_out/$gvcf_out/${variant}_${deepvariant_out}_normalized_${ref_name}.g.vcf',
+              '$log/$called_out/$gvcf_out/${variant}_${deepvariant_out}_normalized_${ref_name}.g.log'],
     source = ['$reference',
               deepvariant_gvcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
@@ -486,8 +533,8 @@ deepvariant_g_normalized, deepvariant_g_norm_log = env.Command(
 )
 
 deepvariant_normalized, deepvariant_norm_log = env.Command(
-    target = ['$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized.vcf',
-              '$log/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized.log'],
+    target = ['$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_${ref_name}.vcf',
+              '$log/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_${ref_name}.log'],
     source = ['$reference',
               deepvariant_vcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
@@ -495,21 +542,21 @@ deepvariant_normalized, deepvariant_norm_log = env.Command(
 )
 
 deepvariant_pass = env.Command(
-    target = '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_PASS.vcf',
+    target = '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_PASS_${ref_name}.vcf',
     source = deepvariant_normalized,
     action = 'grep "#" $SOURCE > $TARGET; grep "$$(printf \'\\t\')PASS$$(printf \'\\t\')" $SOURCE >> $TARGET'
 )
 
 deepvariant_bgz = env.Command(
-    target = '$out/$bgz_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_PASS.vcf.gz',
+    target = '$out/$bgz_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_PASS_${ref_name}.vcf.gz',
     source = deepvariant_pass,
     action = 'bgzip < $SOURCE > $TARGET'
 )
 
 deepvariant_tbi, deepvariant_igv, deepvariant_igv_log = env.Command(
-    target = ['$out/$bgz_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_PASS.vcf.gz.tbi',
-              '$out/$igv_out/$deepvariant_out/${variant}_${deepvariant_out}_igv.html',
-              '$log/$igv_out/$deepvariant_out/${variant}_${deepvariant_out}_igv.log'],
+    target = ['$out/$bgz_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_PASS_${ref_name}.vcf.gz.tbi',
+              '$out/$igv_out/$deepvariant_out/${variant}_${deepvariant_out}_igv_${ref_name}.html',
+              '$log/$igv_out/$deepvariant_out/${variant}_${deepvariant_out}_igv_${ref_name}.log'],
     source = [deepvariant_bgz,
               '$reference',
               mq_filtered_bam],
@@ -519,16 +566,16 @@ deepvariant_tbi, deepvariant_igv, deepvariant_igv_log = env.Command(
 )
 
 deepvariant_csv, deepvariant_bed = env.Command(
-    target = ['$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized.vcf.csv',
-              '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized.vcf.csv.bed'],
+    target = ['$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_${ref_name}.vcf.csv',
+              '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_${ref_name}.vcf.csv.bed'],
     source = deepvariant_pass,
     action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
               'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
 )
 
 deepvariant_cov_bed, deepvariant_cov_csv = env.Command(
-    target = ['$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_genomecov_intersect.bed',
-              '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_cov.csv'],
+    target = ['$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_genomecov_intersect_${ref_name}.bed',
+              '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_cov_${ref_name}.csv'],
     source = [deepvariant_csv,
               deepvariant_bed,
               genome_cov],
@@ -544,8 +591,8 @@ lancet_vcf, lancet_log = env.Command(
               '$log/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}.log'],
     source = ['$reference',
               mq_filtered_bam,
-              '$out/$deduped_out/${ref_name}_deduped_mq10.bam'],
-    action = ('./bin/lancet --tumor ${SOURCES[1]} --normal ${SOURCES[2]} --ref ${SOURCES[0]} '
+              '$out/$deduped_out/${ref_name}_deduped_mq_${ref_name}.bam'],
+    action = ('$lancet --tumor ${SOURCES[1]} --normal ${SOURCES[2]} --ref ${SOURCES[0]} '
               '--reg $accession --min-vaf-tumor $allele_fraction --low-cov $min_read_depth '
               '--num-threads $max_threads --print-config-file > ${TARGETS[0]} 2>${TARGETS[-1]}')
 )
@@ -565,27 +612,34 @@ lancet_normalized, lancet_norm_log = env.Command(
               '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
 )
 
-lancet_final_vcf, lancet_sort_log = env.Command(
-    target = ['$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_sorted.vcf',
-              '$log/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_sorted.log'],
+lancet_pass = env.Command(
+    target = '$out/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}_normalized_PASS.vcf',
     source = lancet_normalized,
+    action = 'grep "#" $SOURCE > $TARGET; grep "$$(printf \'\\t\')PASS$$(printf \'\\t\')" $SOURCE >> $TARGET'
+)
+
+
+lancet_final_vcf, lancet_sort_log = env.Command(
+    target = ['$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_PASSsorted_${ref_name}.vcf',
+              '$log/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_PASSsorted_${ref_name}.log'],
+    source = lancet_pass,
     action = ('for sample in $$(zgrep -m 1 "^#CHROM" $SOURCE | cut -f10-); do '
-              '    $bcftools bcftools view -c 1 -Ov -s $$sample -o $out/$called_out/$lancet_out/$$sample\'_${lancet_out}_normalized.vcf\' $SOURCE; done; '
-              '$gatk SortVcf -I $out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized.vcf -O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1; '
-              'rm $out/$called_out/$lancet_out/${ref_name}_${lancet_out}_normalized.vcf')
+              '    $bcftools bcftools view -c 1 -Ov -s $$sample -o $out/$called_out/$lancet_out/$$sample\'_${lancet_out}_normalized_PASS.vcf\' $SOURCE; done; '
+              '$gatk SortVcf -I $out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_PASS.vcf -O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1; '
+              'rm $out/$called_out/$lancet_out/${ref_name}_${lancet_out}_normalized_PASS.vcf')
 )
 
 
 lancet_bgz = env.Command(
-    target = '$out/$bgz_out/$lancet_out/${variant}_${lancet_out}_normalized_sorted.vcf.gz',
+    target = '$out/$bgz_out/$lancet_out/${variant}_${lancet_out}_normalized_PASSsorted_${ref_name}.vcf.gz',
     source = lancet_final_vcf,
     action = 'bgzip < $SOURCE > $TARGET'
 )
 
 lancet_tbi, lancet_igv, lancet_igv_log = env.Command(
-    target = ['$out/$bgz_out/$lancet_out/${variant}_${lancet_out}_normalized_sorted.vcf.gz.tbi',
-              '$out/$igv_out/$lancet_out/${variant}_${lancet_out}_igv.html',
-              '$log/$igv_out/$lancet_out/${variant}_${lancet_out}_igv.log'],
+    target = ['$out/$bgz_out/$lancet_out/${variant}_${lancet_out}_normalized_PASSsorted_${ref_name}.vcf.gz.tbi',
+              '$out/$igv_out/$lancet_out/${variant}_${lancet_out}_igv_${ref_name}.html',
+              '$log/$igv_out/$lancet_out/${variant}_${lancet_out}_igv_${ref_name}.log'],
     source = [lancet_bgz,
               '$reference',
               mq_filtered_bam],
@@ -595,16 +649,16 @@ lancet_tbi, lancet_igv, lancet_igv_log = env.Command(
 )
 
 lancet_csv, lancet_bed = env.Command(
-    target = ['$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_sorted.vcf.csv',
-              '$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_sorted.vcf.csv.bed'],
+    target = ['$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_PASSsorted_${ref_name}.vcf.csv',
+              '$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_PASSsorted_${ref_name}.vcf.csv.bed'],
     source = lancet_final_vcf,
     action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
               'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
 )
 
 lancet_cov_bed, lancet_cov_csv = env.Command(
-    target = ['$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_sorted_genomecov_intersect.bed',
-              '$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_sorted_cov.csv'],
+    target = ['$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_PASSsorted_genomecov_intersect_${ref_name}.bed',
+              '$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_PASSsorted_cov_${ref_name}.csv'],
     source = [lancet_csv,
               lancet_bed,
               genome_cov],
@@ -680,22 +734,22 @@ discosnp_pass = env.Command(
 )
 
 discosnp_pass_sorted, discosnp_ps_log = env.Command(
-    target = ['$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted.vcf',
-              '$log/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted.log'],
+    target = ['$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted_${ref_name}.vcf',
+              '$log/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted_${ref_name}.log'],
     source = discosnp_pass,
     action = '$gatk SortVcf -I $SOURCE -O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1 '
 )
 
 discosnp_bgz = env.Command(
-    target = '$out/$bgz_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted.vcf.gz',
+    target = '$out/$bgz_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted_${ref_name}.vcf.gz',
     source = discosnp_pass_sorted,
     action = 'bgzip < $SOURCE > $TARGET'
 )
 
 discosnp_tbi, discosnp_igv, discosnp_igv_log = env.Command(
-    target = ['$out/$bgz_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted.vcf.gz.tbi',
-              '$out/$igv_out/$discosnp_out/${variant}_${discosnp_out}_igv.html',
-              '$log/$igv_out/$discosnp_out/${variant}_${discosnp_out}_igv.log'],
+    target = ['$out/$bgz_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted_${ref_name}.vcf.gz.tbi',
+              '$out/$igv_out/$discosnp_out/${variant}_${discosnp_out}_igv_${ref_name}.html',
+              '$log/$igv_out/$discosnp_out/${variant}_${discosnp_out}_igv_${ref_name}.log'],
     source = [discosnp_bgz,
               '$reference',
               mq_filtered_bam],
@@ -705,16 +759,16 @@ discosnp_tbi, discosnp_igv, discosnp_igv_log = env.Command(
 )
 
 discosnp_csv, discosnp_bed = env.Command(
-    target = ['$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted.vcf.csv',
-              '$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted.vcf.csv.bed'],
+    target = ['$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted_${ref_name}.vcf.csv',
+              '$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted_${ref_name}.vcf.csv.bed'],
     source = discosnp_pass_sorted,
     action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
               'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
 )
 
 discosnp_cov_bed, discosnp_cov_csv = env.Command(
-    target = ['$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted_genomecov_intersect.bed',
-              '$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted_cov.csv'],
+    target = ['$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted_genomecov_intersect_${ref_name}.bed',
+              '$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted_cov_${ref_name}.csv'],
     source = [discosnp_csv,
               discosnp_bed,
               genome_cov],
@@ -726,13 +780,13 @@ discosnp_cov_bed, discosnp_cov_csv = env.Command(
 # ################### VarDict ####################
 
 bedfile = env.Command(
-    target = '$out/$deduped_out/${variant}_deduped_mq10.bed',
+    target = '$out/$deduped_out/${variant}_deduped_mq_${ref_name}.bed',
     source = mq_filtered_bam,
     action = '$bedtools bamtobed -i $SOURCE > $TARGET'
 )
 
 vardict_vcf = env.Command(
-    target = '$out/$called_out/$vardict_out/${variant}_vardict.vcf',
+    target = '$out/$called_out/$vardict_out/${variant}_vardict_${ref_name}.vcf',
     source = ['$reference',
               mq_filtered_bam,
               bedfile],
@@ -743,8 +797,8 @@ vardict_vcf = env.Command(
 )
 
 vardict_normalized, vardict_norm_log = env.Command(
-    target = ['$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized.vcf',
-              '$log/$called_out/$vardict_out/${variant}_${vardict_out}_normalized.log'],
+    target = ['$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_${ref_name}.vcf',
+              '$log/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_${ref_name}.log'],
     source = ['$reference',
               vardict_vcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
@@ -752,15 +806,15 @@ vardict_normalized, vardict_norm_log = env.Command(
 )
 
 vardict_bgz = env.Command(
-    target = '$out/$bgz_out/$vardict_out/${variant}_${vardict_out}_normalized.vcf.gz',
+    target = '$out/$bgz_out/$vardict_out/${variant}_${vardict_out}_normalized_${ref_name}.vcf.gz',
     source = vardict_normalized,
     action = 'bgzip < $SOURCE > $TARGET'
 )
 
 vardict_tbi, vardict_igv, vardict_igv_log = env.Command(
-    target = ['$out/$bgz_out/$vardict_out/${variant}_${vardict_out}_normalized.vcf.gz.tbi',
-              '$out/$igv_out/$vardict_out/${variant}_${vardict_out}_igv.html',
-              '$log/$igv_out/$vardict_out/${variant}_${vardict_out}_igv.log'],
+    target = ['$out/$bgz_out/$vardict_out/${variant}_${vardict_out}_normalized_${ref_name}.vcf.gz.tbi',
+              '$out/$igv_out/$vardict_out/${variant}_${vardict_out}_igv_${ref_name}.html',
+              '$log/$igv_out/$vardict_out/${variant}_${vardict_out}_igv_${ref_name}.log'],
     source = [vardict_bgz,
               '$reference',
               mq_filtered_bam],
@@ -770,16 +824,16 @@ vardict_tbi, vardict_igv, vardict_igv_log = env.Command(
 )
 
 vardict_csv, vardict_bed = env.Command(
-    target = ['$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized.vcf.csv',
-              '$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized.vcf.csv.bed'],
+    target = ['$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_${ref_name}.vcf.csv',
+              '$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_${ref_name}.vcf.csv.bed'],
     source = vardict_normalized,
     action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
               'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
 )
 
 vardict_cov_bed, vardict_cov_csv = env.Command(
-    target = ['$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_genomecov_intersect.bed',
-              '$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_cov.csv'],
+    target = ['$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_genomecov_intersect_${ref_name}.bed',
+              '$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_cov_${ref_name}.csv'],
     source = [vardict_csv,
               vardict_bed,
               genome_cov],
@@ -788,127 +842,103 @@ vardict_cov_bed, vardict_cov_csv = env.Command(
 )
 
 
-# ############### Get Variant Coverage ################
+# ################### Filter Variant Calls by DP ######################
 
-variant_csv, variant_bed = env.Command(
-    target = ['$out/$variants_out/${variant}_normalized.vcf.csv',
-              '$out/$variants_out/${variant}_normalized.vcf.csv.bed'],
-    source = normalized_variant_vcf,
-    action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
-              'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
+gatk_cov_filtered = env.Command(
+    target = '$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_dp${min_read_depth}_${ref_name}.vcf',
+    source = gatk_normalized,
+    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
 )
 
-variant_cov_bed, variant_cov_csv = env.Command(
-    target = ['$out/$variants_out/${variant}_normalized_genomecov_intersect.bed',
-              '$out/$variants_out/${variant}_normalized_cov.csv'],
-    source = [variant_csv,
-              variant_bed,
-              genome_cov],
-    action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -wo > ${TARGETS[0]}; '
-              'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
+bcftools_cov_filtered = env.Command(
+    target = '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_dp${min_read_depth}_${ref_name}.vcf',
+    source = bcftools_normalized,
+    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
+)
+
+freebayes_cov_filtered = env.Command(
+    target = '$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized_dp${min_read_depth}_${ref_name}.vcf',
+    source = freebayes_normalized,
+    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
+)
+
+deepvariant_cov_filtered = env.Command(
+    target = '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_dp${min_read_depth}_${ref_name}.vcf',
+    source = deepvariant_pass,
+    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
+)
+
+discosnp_cov_filtered = env.Command(
+    target = '$out/$called_out/$discosnp_out/${variant}_${discosnp_out}_normalized_dp${min_read_depth}_${ref_name}.vcf',
+    source = discosnp_pass_sorted,
+    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
+)
+
+lancet_cov_filtered = env.Command(
+    target = '$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_dp${min_read_depth}_${ref_name}.vcf',
+    source = lancet_final_vcf,
+    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
+)
+
+vardict_cov_filtered = env.Command(
+    target = '$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_dp${min_read_depth}_${ref_name}.vcf',
+    source = vardict_normalized,
+    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
 )
 
 
 # ################### Check Calls ######################
 
-gatk_cov_filtered = env.Command(
-    target = '$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_dp${min_read_depth}.vcf',
-    source = gatk_normalized,
-    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
-)
-
 gatk_calls = env.Command(
-    target = '$out/$checked_out/$gatk_out/${variant}_${gatk_out}_normalized_dp${min_read_depth}_checked.csv',
+    target = '$out/$checked_out/$gatk_out/${variant}_${gatk_out}_normalized_dp${min_read_depth}_${ref_name}_checked.csv',
     source = [gatk_cov_filtered,
               variant_cov_csv,
               gatk_cov_csv],
     action = 'python $check_call $gatk_out $variant $SOURCES $TARGET'
 )
 
-
-bcftools_cov_filtered = env.Command(
-    target = '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_dp${min_read_depth}.vcf',
-    source = bcftools_normalized,
-    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
-)
-
 bcftools_calls = env.Command(
-    target = '$out/$checked_out/$bcftools_out/${variant}_${bcftools_out}_normalized_dp${min_read_depth}_checked.csv',
+    target = '$out/$checked_out/$bcftools_out/${variant}_${bcftools_out}_normalized_dp${min_read_depth}_${ref_name}_checked.csv',
     source = [bcftools_cov_filtered,
               variant_cov_csv,
               bcftools_cov_csv],
     action = 'python $check_call $bcftools_out $variant $SOURCES $TARGET'
 )
 
-
-freebayes_cov_filtered = env.Command(
-    target = '$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized_dp${min_read_depth}.vcf',
-    source = freebayes_normalized,
-    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
-)
-
 freebayes_calls = env.Command(
-    target = '$out/$checked_out/$freebayes_out/${variant}_${freebayes_out}_normalized_dp${min_read_depth}_checked.csv',
+    target = '$out/$checked_out/$freebayes_out/${variant}_${freebayes_out}_normalized_dp${min_read_depth}_${ref_name}_checked.csv',
     source = [freebayes_cov_filtered,
               variant_cov_csv,
               freebayes_cov_csv],
     action = 'python $check_call $freebayes_out $variant $SOURCES $TARGET'
 )
 
-
-deepvariant_cov_filtered = env.Command(
-    target = '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_dp${min_read_depth}.vcf',
-    source = deepvariant_pass,
-    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
-)
-
 deepvariant_calls = env.Command(
-    target = '$out/$checked_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_PASS_dp${min_read_depth}_checked.csv',
+    target = '$out/$checked_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_PASS_dp${min_read_depth}_${ref_name}_checked.csv',
     source = [deepvariant_cov_filtered,
               variant_cov_csv,
               deepvariant_cov_csv],
     action = 'python $check_call $deepvariant_out $variant $SOURCES $TARGET'
 )
 
-
-discosnp_cov_filtered = env.Command(
-    target = '$out/$called_out/$discosnp_out/${variant}_${discosnp_out}_normalized_dp${min_read_depth}.vcf',
-    source = discosnp_pass_sorted,
-    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
-)
-
 discosnp_calls = env.Command(
-    target = '$out/$checked_out/$discosnp_out/${variant}_${discosnp_out}-edit_normalized_PASSsorted_dp${min_read_depth}_checked.csv',
+    target = '$out/$checked_out/$discosnp_out/${variant}_${discosnp_out}-edit_normalized_PASSsorted_dp${min_read_depth}_${ref_name}_checked.csv',
     source = [discosnp_cov_filtered,
               variant_cov_csv,
               discosnp_cov_csv],
     action = 'python $check_call $discosnp_out $variant $SOURCES $TARGET'
 )
 
-
-lancet_cov_filtered = env.Command(
-    target = '$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_dp${min_read_depth}.vcf',
-    source = lancet_final_vcf,
-    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
-)
-
 lancet_calls = env.Command(
-    target = '$out/$checked_out/$lancet_out/${variant}_${lancet_out}_normalized_dp${min_read_depth}_checked.csv',
+    target = '$out/$checked_out/$lancet_out/${variant}_${lancet_out}_normalized_dp${min_read_depth}_${ref_name}_checked.csv',
     source = [lancet_cov_filtered,
               variant_cov_csv,
               lancet_cov_csv],
     action = 'python $check_call $lancet_out $variant $SOURCES $TARGET'
 )
 
-
-vardict_cov_filtered = env.Command(
-    target = '$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_dp${min_read_depth}.vcf',
-    source = vardict_normalized,
-    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' -o $TARGET $SOURCE'
-)
-
 vardict_calls = env.Command(
-    target = '$out/$checked_out/$vardict_out/${variant}_${vardict_out}_normalized_dp${min_read_depth}_checked.csv',
+    target = '$out/$checked_out/$vardict_out/${variant}_${vardict_out}_normalized_dp${min_read_depth}_${ref_name}_checked.csv',
     source = [vardict_cov_filtered,
               variant_cov_csv,
               vardict_cov_csv],
@@ -916,7 +946,7 @@ vardict_calls = env.Command(
 )
 
 all_checked_csv = env.Command(
-    target = '$out/$checked_out/${variant}_alltools_normalized_dp${min_read_depth}_checked.csv',
+    target = '$out/$checked_out/${variant}_alltools_normalized_dp${min_read_depth}_${ref_name}_checked.csv',
     source = [gatk_calls,
               bcftools_calls,
               freebayes_calls,
@@ -927,5 +957,4 @@ all_checked_csv = env.Command(
     action = ('echo \'CHROM,POS,REF,ALT,TYPE,INS_TYPE,LEN,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,ZYG,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG\' > $TARGET; '
               'cat $SOURCES | sed \'/CHROM,POS,REF,ALT,TYPE,INS_TYPE,LEN,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,ZYG,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG/d\' >> $TARGET')
 )
-
 
