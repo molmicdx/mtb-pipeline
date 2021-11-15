@@ -53,7 +53,7 @@ def format_csv(csvin, csvout, toref, samplename):
     
     return
 
-def vcf_to_csv(vcf, csvout):
+def vcf_to_csv(vcf, csvout, sample=None):
     vcf_reader = vcfpy.Reader(vcf)
     fieldnames = ['CHROM','POS','REF','ALT','TYPE','INS_TYPE','LEN','QUAL','AD_REF','AD_ALT','DP','BAM_DP','GT','ZYG','RK_DISCOSNP','TOOL','SAMPLE','TRUE_POS','FALSE_POS','FALSE_NEG']
     writer = csv.DictWriter(csvout, fieldnames=fieldnames)
@@ -80,7 +80,10 @@ def vcf_to_csv(vcf, csvout):
         except KeyError:
             variant['INS_TYPE'] = None
         for call in record.calls:
-            variant['SAMPLE'] = call.sample
+            if sample == None:
+                variant['SAMPLE'] = call.sample
+            else:
+                variant['SAMPLE'] = sample
             variant['GT'] = str(call.data['GT'])
             if len(variant['GT']) > 1:
                 if variant['GT'][0] != variant['GT'][-1]:
@@ -99,7 +102,7 @@ def main():
     if args.formatcsv:
         format_csv(args.file, args.outcsv, args.asref, args.sample)
     else:
-        vcf_to_csv(args.file, args.outcsv)
+        vcf_to_csv(args.file, args.outcsv, args.sample)
 
 if __name__ == '__main__':
     sys.exit(main())
