@@ -640,7 +640,7 @@ lancet_final_vcf, lancet_sort_log = env.Command(
     source = lancet_pass,
     action = ('for sample in $$(zgrep -m 1 "^#CHROM" $SOURCE | cut -f10-); do '
               '    $bcftools bcftools view -c 1 -Ov -s $$sample -o $out/$called_out/$lancet_out/$$sample\'_${lancet_out}_normalized_PASS.vcf\' $SOURCE; done; '
-              '$gatk SortVcf -I $out/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}_normalized_PASS.vcf -O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1; '
+              '$gatk SortVcf -I $out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_PASS.vcf -O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1; '
               'rm $out/$called_out/$lancet_out/${ref_name}_${lancet_out}_normalized_PASS.vcf')
 )
 
