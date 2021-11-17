@@ -1,16 +1,18 @@
 #!/bin/bash
 
-VARIANT=H37Rv_10-3SNP100X
+VARIANT=H37Rv_10-3DEL100X
+DOWNSAMPLE=5/100
+DS_VARIANT=H37Rv_10-3DELhead5X
 READS_DIR=output/reads
 LOG_DIR=logs/reads
-BINDS=/molmicro
+BINDS=/mnt/disk2/molmicro,/mnt/disk15/molmicro,$PWD
 SINGULARITY=/molmicro/common/singularity
 SEQMAGICK_IMG=seqmagick-0.6.1.img
-DOWNSAMPLE=1/10
-DS_VARIANT=H37Rv_10-3SNPhead10X
 
 echo "[seqmagick]"
-#singularity run -B $BINDS $SINGULARITY/$SEQMAGICK_IMG info $READS_DIR/${VARIANT}.R*.trimmed.fq.gz > $LOG_DIR/${VARIANT}_seqmagick.log
+if [ ! -f "$LOG_DIR/${VARIANT}_seqmagick.log" ]; then
+	singularity run -B $BINDS $SINGULARITY/$SEQMAGICK_IMG info $READS_DIR/${VARIANT}.R*.trimmed.fq.gz > $LOG_DIR/${VARIANT}_seqmagick.log
+fi
 echo "seqmagick done"
 
 NUM_READS=$(cut -f 6 $LOG_DIR/${VARIANT}_seqmagick.log | tail -1)
