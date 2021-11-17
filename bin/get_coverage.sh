@@ -10,8 +10,10 @@ SAMTOOLS=samtools_1.12.sif
 
 # Use samtools
 echo "[samtools coverage]"
+echo "input: $BAM_FILE"
 singularity exec -B $BINDS,$PWD $SINGULARITY/$SAMTOOLS samtools coverage $1
 
 # Use bedtools
 echo "[bedtools genomecov | awk]"
+echo "input: $BAM_FILE"
 singularity exec -B $BINDS,$PWD $SINGULARITY/$BEDTOOLS bedtools genomecov -ibam $1 | grep $2 | awk '{ sum+=$2*$3/$4 } END { print "meandepth: "sum }'

@@ -274,6 +274,13 @@ genome_cov = env.Command(
     action = '$bedtools genomecov -ibam $SOURCE -bga > $TARGET'
 )
 
+meandepth = env.Command(
+    target = ['$log/$reads_out/${variant}_meandepth.log'],
+    source = [sorted_bam, mq_filtered_bam],
+    action = ('./bin/get_coverage.sh ${SOURCES[0]} $accession > $TARGET; '
+              './bin/get_coverage.sh ${SOURCES[1]} $accession >> $TARGET')
+)
+
 
 # ############### Get Variant Coverage ################
 
