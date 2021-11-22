@@ -66,6 +66,8 @@ env = Environment(
     variant = config.get('variant_simulation', 'variant_name'),
     mock_variant = config.get('variant_simulation', 'mock'),
     variants_config = config.get('variant_simulation', 'variants_config'),
+    amr_bed = config.get('DEFAULT', 'reference_amr_bed'),
+    amr_csv = config.get('DEFAULT', 'reference_amr_csv'),
     to_csv = config.get('variant_simulation', 'to_csv_script'),
     to_bed = config.get('variant_simulation', 'to_bed_script'),
     add_cov = config.get('variant_simulation', 'add_cov_script'),
@@ -302,8 +304,27 @@ variant_cov_bed, variant_cov_csv = env.Command(
               'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
 )
 
-# ############### end inputs ##################
 
+# ################### Get AMR Loci Coverage  ######################
+
+amr_cov_bed = env.Command(
+    target = '$out/$variants_out/${variant}_amr_cov_${ref_name}.bed',
+    source = ['$amr_bed',
+              genome_cov],
+    action = '$bedtools intersect -a ${SOURCES[0]} -b ${SOURCES[1]} -wo > $TARGET'
+)
+
+amr_cov_csv, amr_summstats_cov = env.Command(
+    target = ['$out/$variants_out/${variant}_amr_cov_${ref_name}.csv',
+              '$out/$variants_out/${variant}_amr_covsummstats_${ref_name}.csv'],
+    source = [amr_cov_bed,
+              '$amr_csv'],
+    action = 'python $add_cov $SOURCES ${TARGETS[0]} --summstats_csv ${TARGETS[1]}'
+)
+
+
+# ############### end inputs ##################
+'''
 # ################# Call Variants #####################
 
 # ##################### GATK ##########################
@@ -986,4 +1007,4 @@ all_checked_csv = env.Command(
     action = ('echo \'CHROM,POS,REF,ALT,TYPE,INS_TYPE,LEN,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,ZYG,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG\' > $TARGET; '
               'cat $SOURCES | sed \'/CHROM,POS,REF,ALT,TYPE,INS_TYPE,LEN,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,ZYG,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG/d\' >> $TARGET')
 )
-
+'''
