@@ -13,6 +13,7 @@ except KeyError:
 singularity = config.get('singularity', 'singularity')
 gatk_img = config.get('singularity', 'gatk')
 cutadapt_img = config.get('singularity', 'cutadapt')
+seqmagick_img = config.get('singularity', 'seqmagick')
 bwa_img = config.get('singularity', 'bwa')
 samtools_img = config.get('singularity', 'samtools')
 bcftools_img = config.get('singularity', 'bcftools')
@@ -63,6 +64,7 @@ env = Environment(
     ref_name = config.get('DEFAULT', 'reference_name'),
     accession = config.get('DEFAULT', 'reference_accession'),
     variant = config.get('variant_simulation', 'variant_name'),
+    mock_variant = config.get('variant_simulation', 'mock'),
     variants_config = config.get('variant_simulation', 'variants_config'),
     to_csv = config.get('variant_simulation', 'to_csv_script'),
     to_bed = config.get('variant_simulation', 'to_bed_script'),
@@ -119,6 +121,7 @@ env = Environment(
     igv_flank = config.get('report', 'igv_flanking_sites'),
     gatk = '{} exec -B $cwd {} gatk'.format(singularity, gatk_img),
     cutadapt = '{} exec -B $cwd {} cutadapt'.format(singularity, cutadapt_img),
+    seqmagick = '{} run -B $cwd {}'.format(singularity, seqmagick_img),
     bwa = '{} exec -B $cwd {} bwa'.format(singularity, bwa_img),
     samtools = '{} exec -B $cwd {} samtools'.format(singularity, samtools_img),
     bcftools = '{} exec -B $cwd {}'.format(singularity, bcftools_img),
@@ -159,7 +162,7 @@ ref_dict = env.Command(
     source = '$reference',
     action = '$gatk CreateSequenceDictionary -R $SOURCE'
 )
-'''
+
 # ############# Simulate Variants #############
 simulated_variants_table, simulated_variants_fa = env.Command(
     target = ['$out/$variants_out/${variant}.txt', 
@@ -213,6 +216,17 @@ R1trimmed, R2trimmed, trimlog  = env.Command(
               '--minimum-length $min_read_len -o ${TARGETS[0]} -p ${TARGETS[1]} $SOURCES '
               '> ${TARGETS[-1]} 2>&1')
 )
+'''
+# ############ Get Reads Info #################
+
+seq_log = env.Command(
+    target = '$log/$reads_out/${variant}_seqmagick.log',
+    source = #[gzsimR1, gzsimR2, 
+             # R1trimmed, R2trimmed],
+             ['$out/$reads_out/${variant}.R1.trimmed.fq.gz', '$out/$reads_out/${variant}.R2.trimmed.fq.gz'],
+    action = '$seqmagick info $SOURCES > $TARGET'
+) 
+
 
 # ################ Map Reads ###################
 
@@ -238,7 +252,8 @@ deduped, deduped_metrics, deduped_log = env.Command(
     target = ['$out/$deduped_out/${variant}_deduped_${ref_name}.bam', 
               '$out/$deduped_out/${variant}_deduped_metrics_${ref_name}.txt',
               '$log/$deduped_out/${variant}_deduped_${ref_name}.log'],
-    source = sorted_bam,
+    source = '$out/$mapped_out/${variant}_trimmed-sorted_${ref_name}.bam',
+    #source = sorted_bam,
     action = ('$gatk MarkDuplicates -I $SOURCE -O ${TARGETS[0]} -M ${TARGETS[1]} --REMOVE_DUPLICATES TRUE '
               '> ${TARGETS[-1]} 2>&1')
 )
@@ -259,14 +274,21 @@ genome_cov = env.Command(
     action = '$bedtools genomecov -ibam $SOURCE -bga > $TARGET'
 )
 
+meandepth = env.Command(
+    target = ['$log/$reads_out/${variant}_meandepth.log'],
+    source = [sorted_bam, mq_filtered_bam],
+    action = ('./bin/get_coverage.sh ${SOURCES[0]} $accession > $TARGET; '
+              './bin/get_coverage.sh ${SOURCES[1]} $accession >> $TARGET')
+)
+
 
 # ############### Get Variant Coverage ################
 
 variant_formatted_csv, variant_bed = env.Command(
     target = ['$out/$variants_out/${variant}_formatted_${ref_name}.csv',
               '$out/$variants_out/${variant}_${ref_name}.bed'],
-    source = '$out/$variants_out/${variant}_normalized.vcf',
-    action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
+    source = '$out/$variants_out/${mock_variant}_normalized.vcf',
+    action = ('python $to_csv $SOURCE ${TARGETS[0]} --sample $variant; '
               'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
 )
 
@@ -344,7 +366,7 @@ gatk_csv, gatk_bed = env.Command(
     target = ['$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_${ref_name}.vcf.csv',
               '$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_${ref_name}.vcf.csv.bed'],
     source = gatk_normalized,
-    action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
+    action = ('python $to_csv $SOURCE ${TARGETS[0]} --sample $variant; '
               'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
 )
 
@@ -419,7 +441,7 @@ bcftools_csv, bcftools_bed = env.Command(
     target = ['$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_${ref_name}.vcf.csv',
               '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_${ref_name}.vcf.csv.bed'],
     source = bcftools_normalized,
-    action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
+    action = ('python $to_csv $SOURCE ${TARGETS[0]} --sample $variant; '
               'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
 )
 
@@ -495,7 +517,7 @@ freebayes_csv, freebayes_bed = env.Command(
     target = ['$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized_${ref_name}.vcf.csv',
               '$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized_${ref_name}.vcf.csv.bed'],
     source = freebayes_normalized,
-    action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
+    action = ('python $to_csv $SOURCE ${TARGETS[0]} --sample $variant; '
               'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
 )
 
@@ -569,7 +591,7 @@ deepvariant_csv, deepvariant_bed = env.Command(
     target = ['$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_${ref_name}.vcf.csv',
               '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_${ref_name}.vcf.csv.bed'],
     source = deepvariant_pass,
-    action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
+    action = ('python $to_csv $SOURCE ${TARGETS[0]} --sample $variant; '
               'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
 )
 
@@ -652,7 +674,7 @@ lancet_csv, lancet_bed = env.Command(
     target = ['$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_PASSsorted_${ref_name}.vcf.csv',
               '$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_PASSsorted_${ref_name}.vcf.csv.bed'],
     source = lancet_final_vcf,
-    action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
+    action = ('python $to_csv $SOURCE ${TARGETS[0]} --sample $variant; '
               'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
 )
 
@@ -671,7 +693,7 @@ lancet_cov_bed, lancet_cov_csv = env.Command(
 
 ref_fof = env.Command(
     target = '$out/$called_out/$discosnp_out/${ref_name}_fof.txt',
-    source = [R1trimmed, R2trimmed],
+    source = None,
     action = ('echo ${cwd}/${out}/${reads_out}/${ref_name}.R1.trimmed.fq.gz > $TARGET; '
               'echo ${cwd}/${out}/${reads_out}/${ref_name}.R2.trimmed.fq.gz >> $TARGET')
 )
@@ -681,6 +703,13 @@ variant_fof = env.Command(
     source = None,
     action = ('echo ${cwd}/${out}/${reads_out}/${variant}.R1.trimmed.fq.gz > $TARGET; '
               'echo ${cwd}/${out}/${reads_out}/${variant}.R2.trimmed.fq.gz >> $TARGET')
+)
+
+mock_variant_fof = env.Command(
+    target = '$out/$called_out/$discosnp_out/${variant}_fof.txt',
+    source = None,
+    action = ('echo ${cwd}/${out}/${reads_out}/${mock_variant}.R1.trimmed.fq.gz > $TARGET; '
+              'echo ${cwd}/${out}/${reads_out}/${mock_variant}.R2.trimmed.fq.gz >> $TARGET')
 )
 
 fof = env.Command(
@@ -762,7 +791,7 @@ discosnp_csv, discosnp_bed = env.Command(
     target = ['$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted_${ref_name}.vcf.csv',
               '$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted_${ref_name}.vcf.csv.bed'],
     source = discosnp_pass_sorted,
-    action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
+    action = ('python $to_csv $SOURCE ${TARGETS[0]} --sample $variant; '
               'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
 )
 
@@ -827,7 +856,7 @@ vardict_csv, vardict_bed = env.Command(
     target = ['$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_${ref_name}.vcf.csv',
               '$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_${ref_name}.vcf.csv.bed'],
     source = vardict_normalized,
-    action = ('python $to_csv $SOURCE ${TARGETS[0]}; '
+    action = ('python $to_csv $SOURCE ${TARGETS[0]} --sample $variant; '
               'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
 )
 
