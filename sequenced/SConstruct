@@ -186,6 +186,7 @@ for specimen_id, metadata in specimens.items():
                   '> ${TARGETS[-1]} 2>&1')
     )   
 
+
 # ################ Map Reads ###################
 
     sam = e.Command(
@@ -202,6 +203,13 @@ for specimen_id, metadata in specimens.items():
         source = sam,
         action = '$samtools sort $SOURCE $out/$mapped_out/${variant}_trimmed-sorted_${ref_name}'
     )
+
+    cov_summary = e.Command(
+        target = '$log/$variants_out/${variant}_deduped_mq10_${ref_name}.txt',
+        source = sorted_bam,
+        action = './bin/get_coverage.sh $SOURCE ${accession} > $TARGET'
+    )
+
 
 # ############## Remove Duplicate Reads ###############
     deduped, deduped_metrics, deduped_log = e.Command(
@@ -231,7 +239,7 @@ for specimen_id, metadata in specimens.items():
 
 
 # ############### end inputs ##################
-
+    '''
 # ################# Call Variants #####################
 # ##################### GATK ##########################
 
@@ -784,7 +792,7 @@ for specimen_id, metadata in specimens.items():
                   'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
     )
 
-    '''
+    
 # ############### Get Variant Coverage ################
 
     variant_formatted_csv, variant_bed = e.Command(
@@ -820,13 +828,13 @@ for specimen_id, metadata in specimens.items():
                   '$out/$variants_out/${variant}_amr_covsummstats_${ref_name}.csv'],
         source = [amr_cov_bed,
                   '$amr_csv'],
-        action = 'python $add_cov $SOURCES ${TARGETS[0]} --summstats_csv ${TARGETS[1]}'
+        action = 'python $add_cov $SOURCES ${TARGETS[0]} --summstats_csv ${TARGETS[1]} --samplename $variant'
     )
 
     
 # ############## Filter Variant Calls by AMR Loci #################
     
-
+    '''
 # ################### Filter Variant Calls by DP ######################
 
     gatk_cov_filtered = e.Command(
@@ -949,4 +957,4 @@ for specimen_id, metadata in specimens.items():
         action = ('echo \'CHROM,POS,REF,ALT,TYPE,INS_TYPE,LEN,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,ZYG,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG\' > $TARGET; '
                   'cat $SOURCES | sed \'/CHROM,POS,REF,ALT,TYPE,INS_TYPE,LEN,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,ZYG,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG/d\' >> $TARGET')
     )
-
+    '''
