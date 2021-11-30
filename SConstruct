@@ -1,4 +1,4 @@
-import os
+import 
 import sys
 from utils import parse_config
 
@@ -23,7 +23,6 @@ freebayes_img = config.get('singularity', 'freebayes')
 deepvariant_img = config.get('singularity', 'deepvariant')
 vardict_img = config.get('singularity', 'vardict')
 lancet_img = config.get('singularity', 'lancet')
-delly_img = config.get('singularity', 'delly')
 docker = config.get('docker', 'docker')
 
 from SCons.Script import (Environment, Variables, Help, Decider)
@@ -96,7 +95,6 @@ env = Environment(
     deepvariant_out = config.get('variant_calling', 'deepvariant_output'),
     vardict_scripts = config.get('variant_calling', 'vardict_scripts'),
     vardict_out = config.get('variant_calling', 'vardict_output'),
-    delly_out = config.get('variant_calling', 'delly_output'),
     lancet_out = config.get('variant_calling', 'lancet_output'),
     ploidy = config.get('variant_calling', 'ploidy'),
     allele_fraction = config.get('variant_calling', 'min_allele_fraction'),
@@ -129,7 +127,6 @@ env = Environment(
     bcftools = '{} exec -B $cwd {}'.format(singularity, bcftools_img),
     bedtools = '{} exec -B $cwd {} bedtools'.format(singularity, bedtools_img),
     discosnp = '{} run --pwd $cwd -B $cwd {}'.format(singularity, discosnp_img),
-    delly = '{} exec -B $cwd {} delly'.format(singularity, delly_img),
     freebayes = '{} exec -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} freebayes'.format(singularity, freebayes_img),
     #freebayes = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} freebayes'.format(docker, freebayes_img),
     deepvariant = '{} run -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} /opt/deepvariant/bin/run_deepvariant'.format(singularity, deepvariant_img),
