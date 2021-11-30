@@ -166,9 +166,8 @@ ref_dict = env.Command(
 )
 
 # ############# Simulate Variants #############
-simulated_variants_table, simulated_variants_fa = env.Command(
-    target = ['$out/$variants_out/${variant}.txt', 
-              '$out/$variants_out/${variant}.fa'],
+simulated_variants_table = env.Command(
+    target = '$out/$variants_out/${variant}.txt',
     source = '$reference',
     action = ('python bin/variants.py --settings $variants_config $SOURCE $TARGETS > $log/$variants_out/${variant}.log 2>&1; ' 
               'cat $variants_config > $log/$variants_out/${variant}_variants_settings.conf')
@@ -177,7 +176,7 @@ simulated_variants_table, simulated_variants_fa = env.Command(
 # ############# Normalize Variant VCF ###############
 simulated_variant_vcf = env.Command(
     target = '$out/$variants_out/${variant}.txt.vcf',
-    source = '$out/$variants_out/${variant}.txt',
+    source = simulated_variants_table,
     action = 'python bin/to_vcf.py $SOURCE $variant'
 )
 
@@ -189,7 +188,7 @@ normalized_variant_vcf, normalized_log = env.Command(
               '> ${TARGETS[-1]} 2>&1')
 )
 
-# ########### Simulate NGS Reads ##############
+ ########### Simulate NGS Reads ##############
 sim_R1, sim_R2, simreads_log = env.Command(
     target = ['$out/$reads_out/${variant}_R1.fq', 
               '$out/$reads_out/${variant}_R2.fq', 
@@ -301,7 +300,7 @@ variant_cov_bed, variant_cov_csv = env.Command(
               variant_bed,
               genome_cov],
     action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -wo > ${TARGETS[0]}; '
-              'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
+              'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]} --sample $variant')
 )
 
 
@@ -319,7 +318,7 @@ amr_cov_csv, amr_summstats_cov = env.Command(
               '$out/$variants_out/${variant}_amr_covsummstats_${ref_name}.csv'],
     source = [amr_cov_bed,
               '$amr_csv'],
-    action = 'python $add_cov $SOURCES ${TARGETS[0]} --summstats_csv ${TARGETS[1]}'
+    action = 'python $add_cov $SOURCES ${TARGETS[0]} --summstats_csv ${TARGETS[1]} --sample $variant'
 )
 
 
