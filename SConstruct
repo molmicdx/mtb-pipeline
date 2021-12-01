@@ -386,7 +386,7 @@ gatk_cov_bed, gatk_cov_csv = env.Command(
               'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
 )
 
-'''
+
 # ##################### bcftools #######################
 
 bcftools_gvcf = env.Command(
@@ -397,16 +397,13 @@ bcftools_gvcf = env.Command(
               'bcftools call -Ov -m --gvcf 1 --ploidy-file $ploidy_file -o $TARGET 2>>$log/$called_out/$gvcf_out/${variant}_${bcftools_out}_${ref_name}.log')
 )
 
-
-bcftools_g_normalized, bcftools_g_norm_log = env.Command(
-    target = ['$out/$called_out/$gvcf_out/${variant}_${bcftools_out}_normalized_${ref_name}.g.vcf',
-              '$log/$called_out/$gvcf_out/${variant}_${bcftools_out}_normalized_${ref_name}.g.log'],
+bcftools_g_normalized = env.Command(
+    target = '$out/$called_out/$gvcf_out/${variant}_${bcftools_out}_normalized_${ref_name}.g.vcf',
     source = ['$reference',
               bcftools_gvcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
-              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+              '-O $TARGET > $log/$called_out/$gvcf_out/${variant}_${bcftools_out}_normalized_${ref_name}.g.log 2>&1')
 )
-
 
 bcftools_vcf = env.Command(
     target = '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_${ref_name}.vcf',
@@ -416,13 +413,12 @@ bcftools_vcf = env.Command(
               'bcftools call -Ov -mv --ploidy-file $ploidy_file -o $TARGET 2>>$log/$called_out/$bcftools_out/${variant}_${bcftools_out}_${ref_name}.log')
 )
 
-bcftools_normalized, bcftools_norm_log = env.Command(
-    target = ['$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_${ref_name}.vcf',
-              '$log/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_${ref_name}.log'],
+bcftools_normalized = env.Command(
+    target = '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_${ref_name}.vcf',
     source = ['$reference',
               bcftools_vcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
-              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+              '-O $TARGET > $log/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_${ref_name}.log 2>&1')
 )
 
 bcftools_bgz = env.Command(
@@ -431,16 +427,15 @@ bcftools_bgz = env.Command(
     action = 'bgzip < $SOURCE > $TARGET'
 )
 
-bcftools_tbi, bcftools_igv, bcftools_igv_log = env.Command(
+bcftools_tbi, bcftools_igv = env.Command(
     target = ['$out/$bgz_out/$bcftools_out/${variant}_${bcftools_out}_normalized_${ref_name}.vcf.gz.tbi',
-              '$out/$igv_out/$bcftools_out/${variant}_${bcftools_out}_igv_${ref_name}.html',
-              '$log/$igv_out/$bcftools_out/${variant}_${bcftools_out}_igv_${ref_name}.log'],
+              '$out/$igv_out/$bcftools_out/${variant}_${bcftools_out}_igv_${ref_name}.html'],
     source = [bcftools_bgz,
               '$reference',
               mq_filtered_bam],
     action = ('tabix -f ${SOURCES[0]}; '
               'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
-              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
+              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > $log/$igv_out/$bcftools_out/${variant}_${bcftools_out}_igv_${ref_name}.log 2>&1')
 )
 
 bcftools_csv, bcftools_bed = env.Command(
@@ -461,7 +456,7 @@ bcftools_cov_bed, bcftools_cov_csv = env.Command(
               'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
 )
 
-
+'''
 # ##################### FreeBayes  #######################
 
 freebayes_gvcf = env.Command(
