@@ -218,10 +218,10 @@ R1trimmed, R2trimmed = env.Command(
 
 seq_log = env.Command(
     target = '$log/$reads_out/${variant}_seqmagick.log',
-    source = ['$out/$reads_out/${variant}.R1.trimmed.fq.gz',
-              '$out/$reads_out/${variant}.R2.trimmed.fq.gz'], 
-             #[gzsimR1, gzsimR2, 
-             # R1trimmed, R2trimmed],
+    source = #['$out/$reads_out/${variant}.R1.trimmed.fq.gz',
+             # '$out/$reads_out/${variant}.R2.trimmed.fq.gz'], 
+             [gzsimR1, gzsimR2, 
+              R1trimmed, R2trimmed],
     action = '$seqmagick info $SOURCES > $TARGET'
 ) 
 
@@ -315,7 +315,7 @@ amr_cov_csv, amr_summstats_cov = env.Command(
 
 
 # ############### end inputs ##################
-'''
+
 # ################# Call Variants #####################
 
 # ##################### GATK ##########################
@@ -386,7 +386,7 @@ gatk_cov_bed, gatk_cov_csv = env.Command(
               'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
 )
 
-
+'''
 # ##################### bcftools #######################
 
 bcftools_gvcf = env.Command(
