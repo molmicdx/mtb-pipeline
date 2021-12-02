@@ -609,13 +609,9 @@ lancet_vcf = env.Command(
               '$out/$deduped_out/${ref_name}_deduped_mq_${ref_name}.bam'],
     action = ('$lancet --tumor ${SOURCES[1]} --normal ${SOURCES[2]} --ref ${SOURCES[0]} '
               '--reg $accession --min-vaf-tumor $allele_fraction --low-cov $min_read_depth '
-              '--num-threads $max_threads --print-config-file > $TARGET 2>$log/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}.log')
-)
-
-lancet_config = env.Command(
-    target = '$log/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}_config.txt',
-    source = None,
-    action = 'mv ${cwd}/config.txt $TARGET'
+              '--num-threads $max_threads --print-config-file > $TARGET 2>$log/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}.log; '
+              'mv ${cwd}/config.txt $log/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}_config.txt' 
+             )
 )
 
 lancet_normalized = env.Command(
