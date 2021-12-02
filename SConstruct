@@ -529,36 +529,33 @@ freebayes_cov_bed, freebayes_cov_csv = env.Command(
               'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
 )
 
-'''
+
 # ################# DeepVariant #################
 
-deepvariant_gvcf, deepvariant_vcf, deepvariant_log = env.Command(
+deepvariant_gvcf, deepvariant_vcf = env.Command(
     target = ['$out/$called_out/$gvcf_out/${variant}_${deepvariant_out}_${ref_name}.g.vcf',
-              '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_${ref_name}.vcf',
-              '$log/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_${ref_name}.log'],
+              '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_${ref_name}.vcf'],
     source = ['$reference',
               mq_filtered_bam],
     action = ('$deepvariant --model_type=WGS --ref=${SOURCES[0]} --reads=${SOURCES[1]} '
               '--output_gvcf=${TARGETS[0]} --output_vcf=${TARGETS[1]} --num_shards=$max_threads '
-              '--logging_dir=$log/$called_out/${deepvariant_out}/ > ${TARGETS[-1]} 2>&1')
+              '--logging_dir=$log/$called_out/${deepvariant_out}/ > $log/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_${ref_name}.log 2>&1')
 )
 
-deepvariant_g_normalized, deepvariant_g_norm_log = env.Command(
-    target = ['$out/$called_out/$gvcf_out/${variant}_${deepvariant_out}_normalized_${ref_name}.g.vcf',
-              '$log/$called_out/$gvcf_out/${variant}_${deepvariant_out}_normalized_${ref_name}.g.log'],
+deepvariant_g_normalized = env.Command(
+    target = '$out/$called_out/$gvcf_out/${variant}_${deepvariant_out}_normalized_${ref_name}.g.vcf',
     source = ['$reference',
               deepvariant_gvcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
-              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+              '-O $TARGET > $log/$called_out/$gvcf_out/${variant}_${deepvariant_out}_normalized_${ref_name}.g.log 2>&1')
 )
 
-deepvariant_normalized, deepvariant_norm_log = env.Command(
-    target = ['$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_${ref_name}.vcf',
-              '$log/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_${ref_name}.log'],
+deepvariant_normalized = env.Command(
+    target = '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_${ref_name}.vcf',
     source = ['$reference',
               deepvariant_vcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
-              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+              '-O $TARGET > $log/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_${ref_name}.log 2>&1')
 )
 
 deepvariant_pass = env.Command(
@@ -573,16 +570,15 @@ deepvariant_bgz = env.Command(
     action = 'bgzip < $SOURCE > $TARGET'
 )
 
-deepvariant_tbi, deepvariant_igv, deepvariant_igv_log = env.Command(
+deepvariant_tbi, deepvariant_igv = env.Command(
     target = ['$out/$bgz_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_PASS_${ref_name}.vcf.gz.tbi',
-              '$out/$igv_out/$deepvariant_out/${variant}_${deepvariant_out}_igv_${ref_name}.html',
-              '$log/$igv_out/$deepvariant_out/${variant}_${deepvariant_out}_igv_${ref_name}.log'],
+              '$out/$igv_out/$deepvariant_out/${variant}_${deepvariant_out}_igv_${ref_name}.html'],
     source = [deepvariant_bgz,
               '$reference',
               mq_filtered_bam],
     action = ('tabix -f ${SOURCES[0]}; '
               'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
-              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
+              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > $log/$igv_out/$deepvariant_out/${variant}_${deepvariant_out}_igv_${ref_name}.log 2>&1')
 )
 
 deepvariant_csv, deepvariant_bed = env.Command(
@@ -603,7 +599,7 @@ deepvariant_cov_bed, deepvariant_cov_csv = env.Command(
               'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
 )
 
-
+'''
 # ################### Lancet ####################
 
 lancet_vcf, lancet_log = env.Command(
