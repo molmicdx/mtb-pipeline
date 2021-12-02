@@ -672,7 +672,7 @@ lancet_cov_bed, lancet_cov_csv = env.Command(
               'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
 )
 
-'''
+
 # ################## DiscoSnp ###################
 
 ref_fof = env.Command(
@@ -682,18 +682,11 @@ ref_fof = env.Command(
               'echo ${cwd}/${out}/${reads_out}/${ref_name}.R2.trimmed.fq.gz >> $TARGET')
 )
 
-#variant_fof = env.Command(
-#    target = '$out/$called_out/$discosnp_out/${variant}_fof.txt',
-#    source = None,
-#    action = ('echo ${cwd}/${out}/${reads_out}/${variant}.R1.trimmed.fq.gz > $TARGET; '
-#              'echo ${cwd}/${out}/${reads_out}/${variant}.R2.trimmed.fq.gz >> $TARGET')
-#)
-
-mock_variant_fof = env.Command(
+variant_fof = env.Command(
     target = '$out/$called_out/$discosnp_out/${variant}_fof.txt',
     source = None,
-    action = ('echo ${cwd}/${out}/${reads_out}/${mock_variant}.R1.trimmed.fq.gz > $TARGET; '
-              'echo ${cwd}/${out}/${reads_out}/${mock_variant}.R2.trimmed.fq.gz >> $TARGET')
+    action = ('echo ${cwd}/${out}/${reads_out}/${variant}.R1.trimmed.fq.gz > $TARGET; '
+              'echo ${cwd}/${out}/${reads_out}/${variant}.R2.trimmed.fq.gz >> $TARGET')
 )
 
 fof = env.Command(
@@ -704,25 +697,23 @@ fof = env.Command(
               'echo ${variant}_fof.txt >> $TARGET')
 )
 
-discosnp_vcf, discosnp_log = env.Command(
-    target = ['$out/$called_out/$discosnp_out/${ref_name}_${variant}_k_${kmer_size}_c_${coverage}_D_100_P_${snp_per_bubble}_b_${disco_mode}_coherent.vcf',
-              '$log/$called_out/${ref_name}_${variant}_discosnp.log'],    
+discosnp_vcf = env.Command(
+    target = '$out/$called_out/$discosnp_out/${ref_name}_${variant}_k_${kmer_size}_c_${coverage}_D_100_P_${snp_per_bubble}_b_${disco_mode}_coherent.vcf',
     source = ['$reference',
               fof],
     action = ('$discosnp $out -r ../${SOURCES[1]} -P $snp_per_bubble '
               '-b $disco_mode -k $kmer_size -c $coverage -T -l '
-              '-G ../${SOURCES[0]} -p ${ref_name}_${variant} -u $max_threads > ${TARGETS[-1]} 2>&1; '
+              '-G ../${SOURCES[0]} -p ${ref_name}_${variant} -u $max_threads > $log/$called_out/${ref_name}_${variant}_discosnp.log 2>&1; '
               'mv $out/${ref_name}_${variant}* $out/$called_out/$discosnp_out/; '
-	      'sed -i \'s/INDEL_.*_path_[0-9]*/${accession}/g\' ${TARGETS[0]}') #temp fix for inexplicable VCF entry; may falsely inflate false positive calls
+	      'sed -i \'s/INDEL_.*_path_[0-9]*/${accession}/g\' $TARGET') #temp fix for inexplicable VCF entry; may falsely inflate false positive calls
 )
 
-discosnp_normalized, discosnp_norm_log = env.Command(
-    target = ['$out/$called_out/$discosnp_out/${ref_name}_${variant}_discosnp_normalized.vcf',
-              '$log/$called_out/$discosnp_out/${ref_name}_${variant}_discosnp_normalized.log'],
+discosnp_normalized = env.Command(
+    target = '$out/$called_out/$discosnp_out/${ref_name}_${variant}_discosnp_normalized.vcf',
     source = ['$reference',
               discosnp_vcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
-              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+              '-O $TARGET > $log/$called_out/$discosnp_out/${ref_name}_${variant}_discosnp_normalized.log 2>&1')
 )
 
 discosnp_formatted = env.Command(
@@ -746,11 +737,10 @@ discosnp_pass = env.Command(
     action = 'grep "#" $SOURCE > $TARGET; grep "$$(printf \'\\t\')PASS$$(printf \'\\t\')" $SOURCE >> $TARGET'
 )
 
-discosnp_pass_sorted, discosnp_ps_log = env.Command(
-    target = ['$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted_${ref_name}.vcf',
-              '$log/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted_${ref_name}.log'],
+discosnp_pass_sorted = env.Command(
+    target = '$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted_${ref_name}.vcf',
     source = discosnp_pass,
-    action = '$gatk SortVcf -I $SOURCE -O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1 '
+    action = '$gatk SortVcf -I $SOURCE -O $TARGET > $log/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted_${ref_name}.log 2>&1 '
 )
 
 discosnp_bgz = env.Command(
@@ -759,16 +749,15 @@ discosnp_bgz = env.Command(
     action = 'bgzip < $SOURCE > $TARGET'
 )
 
-discosnp_tbi, discosnp_igv, discosnp_igv_log = env.Command(
+discosnp_tbi, discosnp_igv = env.Command(
     target = ['$out/$bgz_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted_${ref_name}.vcf.gz.tbi',
-              '$out/$igv_out/$discosnp_out/${variant}_${discosnp_out}_igv_${ref_name}.html',
-              '$log/$igv_out/$discosnp_out/${variant}_${discosnp_out}_igv_${ref_name}.log'],
+              '$out/$igv_out/$discosnp_out/${variant}_${discosnp_out}_igv_${ref_name}.html'],
     source = [discosnp_bgz,
               '$reference',
               mq_filtered_bam],
     action = ('tabix -f ${SOURCES[0]}; '
               'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
-              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
+              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > $log/$igv_out/$discosnp_out/${variant}_${discosnp_out}_igv_${ref_name}.log 2>&1')
 )
 
 discosnp_csv, discosnp_bed = env.Command(
@@ -789,7 +778,7 @@ discosnp_cov_bed, discosnp_cov_csv = env.Command(
               'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
 )
 
-
+'''
 # ################### VarDict ####################
 
 bedfile = env.Command(
