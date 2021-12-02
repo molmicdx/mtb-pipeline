@@ -778,7 +778,7 @@ discosnp_cov_bed, discosnp_cov_csv = env.Command(
               'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
 )
 
-'''
+
 # ################### VarDict ####################
 
 bedfile = env.Command(
@@ -798,13 +798,12 @@ vardict_vcf = env.Command(
               '> $TARGET')
 )
 
-vardict_normalized, vardict_norm_log = env.Command(
-    target = ['$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_${ref_name}.vcf',
-              '$log/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_${ref_name}.log'],
+vardict_normalized = env.Command(
+    target = '$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_${ref_name}.vcf',
     source = ['$reference',
               vardict_vcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
-              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+              '-O $TARGET > $log/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_${ref_name}.log 2>&1')
 )
 
 vardict_bgz = env.Command(
@@ -813,16 +812,16 @@ vardict_bgz = env.Command(
     action = 'bgzip < $SOURCE > $TARGET'
 )
 
-vardict_tbi, vardict_igv, vardict_igv_log = env.Command(
+vardict_tbi, vardict_igv = env.Command(
     target = ['$out/$bgz_out/$vardict_out/${variant}_${vardict_out}_normalized_${ref_name}.vcf.gz.tbi',
-              '$out/$igv_out/$vardict_out/${variant}_${vardict_out}_igv_${ref_name}.html',
-              '$log/$igv_out/$vardict_out/${variant}_${vardict_out}_igv_${ref_name}.log'],
+              '$out/$igv_out/$vardict_out/${variant}_${vardict_out}_igv_${ref_name}.html'
+              ],
     source = [vardict_bgz,
               '$reference',
               mq_filtered_bam],
     action = ('tabix -f ${SOURCES[0]}; '
               'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
-              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
+              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > $log/$igv_out/$vardict_out/${variant}_${vardict_out}_igv_${ref_name}.log 2>&1')
 )
 
 vardict_csv, vardict_bed = env.Command(
@@ -843,7 +842,7 @@ vardict_cov_bed, vardict_cov_csv = env.Command(
               'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
 )
 
-
+'''
 # ################### Filter Variant Calls by DP ######################
 
 gatk_cov_filtered = env.Command(
