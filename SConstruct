@@ -599,18 +599,17 @@ deepvariant_cov_bed, deepvariant_cov_csv = env.Command(
               'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
 )
 
-'''
+
 # ################### Lancet ####################
 
-lancet_vcf, lancet_log = env.Command(
-    target = ['$out/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}.vcf',
-              '$log/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}.log'],
+lancet_vcf = env.Command(
+    target = '$out/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}.vcf',
     source = ['$reference',
               mq_filtered_bam,
               '$out/$deduped_out/${ref_name}_deduped_mq_${ref_name}.bam'],
     action = ('$lancet --tumor ${SOURCES[1]} --normal ${SOURCES[2]} --ref ${SOURCES[0]} '
               '--reg $accession --min-vaf-tumor $allele_fraction --low-cov $min_read_depth '
-              '--num-threads $max_threads --print-config-file > ${TARGETS[0]} 2>${TARGETS[-1]}')
+              '--num-threads $max_threads --print-config-file > $TARGET 2>$log/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}.log')
 )
 
 lancet_config = env.Command(
@@ -619,13 +618,12 @@ lancet_config = env.Command(
     action = 'mv ${cwd}/config.txt $TARGET'
 )
 
-lancet_normalized, lancet_norm_log = env.Command(
-    target = ['$out/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}_normalized.vcf',
-              '$log/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}_normalized.log'],
+lancet_normalized = env.Command(
+    target = '$out/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}_normalized.vcf',
     source = ['$reference',
               lancet_vcf],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
-              '-O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1')
+              '-O $TARGET > $log/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}_normalized.log 2>&1')
 )
 
 lancet_pass = env.Command(
@@ -634,17 +632,14 @@ lancet_pass = env.Command(
     action = 'grep "#" $SOURCE > $TARGET; grep "$$(printf \'\\t\')PASS$$(printf \'\\t\')" $SOURCE >> $TARGET'
 )
 
-
-lancet_final_vcf, lancet_sort_log = env.Command(
-    target = ['$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_PASSsorted_${ref_name}.vcf',
-              '$log/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_PASSsorted_${ref_name}.log'],
+lancet_final_vcf = env.Command(
+    target = '$out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_PASSsorted_${ref_name}.vcf',
     source = lancet_pass,
     action = ('for sample in $$(zgrep -m 1 "^#CHROM" $SOURCE | cut -f10-); do '
               '    $bcftools bcftools view -c 1 -Ov -s $$sample -o $out/$called_out/$lancet_out/$$sample\'_${lancet_out}_normalized_PASS.vcf\' $SOURCE; done; '
-              '$gatk SortVcf -I $out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_PASS.vcf -O ${TARGETS[0]} > ${TARGETS[-1]} 2>&1; '
+              '$gatk SortVcf -I $out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_PASS.vcf -O $TARGET > $log/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_PASSsorted_${ref_name}.log 2>&1; '
               'rm $out/$called_out/$lancet_out/${ref_name}_${lancet_out}_normalized_PASS.vcf')
 )
-
 
 lancet_bgz = env.Command(
     target = '$out/$bgz_out/$lancet_out/${variant}_${lancet_out}_normalized_PASSsorted_${ref_name}.vcf.gz',
@@ -652,16 +647,15 @@ lancet_bgz = env.Command(
     action = 'bgzip < $SOURCE > $TARGET'
 )
 
-lancet_tbi, lancet_igv, lancet_igv_log = env.Command(
+lancet_tbi, lancet_igv = env.Command(
     target = ['$out/$bgz_out/$lancet_out/${variant}_${lancet_out}_normalized_PASSsorted_${ref_name}.vcf.gz.tbi',
-              '$out/$igv_out/$lancet_out/${variant}_${lancet_out}_igv_${ref_name}.html',
-              '$log/$igv_out/$lancet_out/${variant}_${lancet_out}_igv_${ref_name}.log'],
+              '$out/$igv_out/$lancet_out/${variant}_${lancet_out}_igv_${ref_name}.html'],
     source = [lancet_bgz,
               '$reference',
               mq_filtered_bam],
     action = ('tabix -f ${SOURCES[0]}; '
               'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
-              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > ${TARGETS[-1]} 2>&1')
+              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > $log/$igv_out/$lancet_out/${variant}_${lancet_out}_igv_${ref_name}.log 2>&1')
 )
 
 lancet_csv, lancet_bed = env.Command(
@@ -682,7 +676,7 @@ lancet_cov_bed, lancet_cov_csv = env.Command(
               'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
 )
 
-
+'''
 # ################## DiscoSnp ###################
 
 ref_fof = env.Command(
