@@ -29,3 +29,15 @@ xsv
 *tmp*
 data/H37Ra-INHOUSE-*
 data/PROKKA*
+singularity/*
+sequenced/output/*
+bin/Roary/
+notebooks/amr_sites
+output/roary_*
+sequenced/bin
+sequenced/data
+sequenced/example
+data/H37Ra-inhouse*
+data/NC_000962.3_amr*
+data/NZ_CP016972.1*
+data/inhouse_4mutations/
