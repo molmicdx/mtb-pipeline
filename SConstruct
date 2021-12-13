@@ -218,9 +218,7 @@ R1trimmed, R2trimmed = env.Command(
 
 seq_log = env.Command(
     target = '$log/$reads_out/${variant}_seqmagick.log',
-    source = #['$out/$reads_out/${variant}.R1.trimmed.fq.gz',
-             # '$out/$reads_out/${variant}.R2.trimmed.fq.gz'], 
-             [gzsimR1, gzsimR2, 
+    source = [gzsimR1, gzsimR2, 
               R1trimmed, R2trimmed],
     action = '$seqmagick info $SOURCES > $TARGET'
 ) 
@@ -603,15 +601,13 @@ deepvariant_cov_bed, deepvariant_cov_csv = env.Command(
 # ################### Lancet ####################
 
 lancet_vcf = env.Command(
-    target = '$out/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}.vcf',
+    target = '$out/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}.vcf', 
     source = ['$reference',
               mq_filtered_bam,
               '$out/$deduped_out/${ref_name}_deduped_mq_${ref_name}.bam'],
     action = ('$lancet --tumor ${SOURCES[1]} --normal ${SOURCES[2]} --ref ${SOURCES[0]} '
               '--reg $accession --min-vaf-tumor $allele_fraction --low-cov $min_read_depth '
-              '--num-threads $max_threads --print-config-file > $TARGET 2>$log/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}.log; '
-              'mv ${cwd}/config.txt $log/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}_config.txt' 
-             )
+              '--num-threads $max_threads > $TARGET 2>$log/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}.log; ')
 )
 
 lancet_normalized = env.Command(
@@ -958,4 +954,4 @@ all_checked_csv = env.Command(
     action = ('echo \'CHROM,POS,REF,ALT,TYPE,INS_TYPE,LEN,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,ZYG,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG\' > $TARGET; '
               'cat $SOURCES | sed \'/CHROM,POS,REF,ALT,TYPE,INS_TYPE,LEN,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,ZYG,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG/d\' >> $TARGET')
 )
-'''
+
