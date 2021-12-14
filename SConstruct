@@ -229,7 +229,9 @@ seq_log = env.Command(
 sam = env.Command(
     target = '$out/$mapped_out/${variant}_trimmed_${ref_name}.sam',
     source = ['$reference',
-              R1trimmed, R2trimmed],
+             #R1trimmed, R2trimmed],
+              '$out/$reads_out/${variant}.R1.trimmed.fq.gz',
+              '$out/$reads_out/${variant}.R2.trimmed.fq.gz'], 
     action = ('$bwa mem $SOURCES -K $bwa_k '
               '-R \'@RG\\tID:${variant}\\tLB:LB_${variant}\\tPL:${rg_pl}\\tPU:${rg_pu}\\tSM:${variant}\' '
               '> $TARGET 2>$log/$mapped_out/${variant}_trimmed_mapped_${ref_name}.log')
@@ -278,7 +280,7 @@ meandepth = env.Command(
 variant_formatted_csv, variant_bed = env.Command(
     target = ['$out/$variants_out/${variant}_formatted_${ref_name}.csv',
               '$out/$variants_out/${variant}_${ref_name}.bed'],
-    source = '$out/$variants_out/${variant}_normalized.vcf',
+    source = '$out/$variants_out/${mock_variant}_normalized.vcf',
     action = ('python $to_csv $SOURCE ${TARGETS[0]} --sample $variant; '
               'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
 )
@@ -838,7 +840,7 @@ vardict_cov_bed, vardict_cov_csv = env.Command(
               'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
 )
 
-'''
+
 # ################### Filter Variant Calls by DP ######################
 
 gatk_cov_filtered = env.Command(
