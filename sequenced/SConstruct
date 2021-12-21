@@ -187,6 +187,15 @@ for specimen_id, metadata in specimens.items():
     )   
 
 
+# ############ Get Reads Info #################
+
+    seq_log = e.Command(
+        target = '$log/$reads_out/${variant}_seqmagick.log',
+        source = [R1trimmed, R2trimmed],
+        action = '$seqmagick info $SOURCES > $TARGET'
+    ) 
+
+
 # ################ Map Reads ###################
 
     sam = e.Command(
@@ -237,9 +246,34 @@ for specimen_id, metadata in specimens.items():
         action = '$bedtools genomecov -ibam $SOURCE -bga > $TARGET'
     )
 
+    meandepth = e.Command(
+        target = ['$log/$reads_out/${variant}_meandepth.log'],
+        source = [sorted_bam, mq_filtered_bam],
+        action = ('./bin/get_coverage.sh ${SOURCES[0]} $accession > $TARGET; '
+                  './bin/get_coverage.sh ${SOURCES[1]} $accession >> $TARGET')
+    )
 
+
+# ################### Get AMR Loci Coverage  ######################
+
+    amr_cov_bed = e.Command(
+        target = '$out/$variants_out/${variant}_amr_cov_${ref_name}.bed',
+        source = ['$amr_bed',
+                  genome_cov],
+        action = '$bedtools intersect -a ${SOURCES[0]} -b ${SOURCES[1]} -wo > $TARGET'
+    )
+
+    amr_cov_csv, amr_summstats_cov = e.Command(
+        target = ['$out/$variants_out/${variant}_amr_cov_${ref_name}.csv',
+                  '$out/$variants_out/${variant}_amr_covsummstats_${ref_name}.csv'],
+        source = [amr_cov_bed,
+                  '$amr_csv'],
+        action = 'python $add_cov $SOURCES ${TARGETS[0]} --summstats_csv ${TARGETS[1]} --samplename $variant'
+    )
+
+    
 # ############### end inputs ##################
-    '''
+    
 # ################# Call Variants #####################
 # ##################### GATK ##########################
 
@@ -793,48 +827,6 @@ for specimen_id, metadata in specimens.items():
     )
 
     
-# ############### Get Variant Coverage ################
-
-    variant_formatted_csv, variant_bed = e.Command(
-        target = ['$out/$variants_out/${variant}_formatted_${ref_name}.csv',
-                  '$out/$variants_out/${variant}_${ref_name}.bed'],
-        source = '$out/$variants_out/${variant}_normalized.csv',
-        action = ('python $to_csv $SOURCE ${TARGETS[0]} --formatcsv; '
-                  'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
-    )
-
-    variant_cov_bed, variant_cov_csv = e.Command(
-        target = ['$out/$variants_out/${variant}_genomecov_intersect_${ref_name}.bed',
-                  '$out/$variants_out/${variant}_cov_${ref_name}.csv'],
-        source = ['$out/$variants_out/${variant}_formatted_${ref_name}.csv',
-                  '$out/$variants_out/${variant}_${ref_name}.bed',
-                  genome_cov],
-        action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -wo > ${TARGETS[0]}; '
-                  'python $add_cov ${TARGETS[0]} ${SOURCES[0]} ${TARGETS[1]}')
-    )
-
-    '''
-# ################### Get AMR Loci Coverage  ######################
-
-    amr_cov_bed = e.Command(
-        target = '$out/$variants_out/${variant}_amr_cov_${ref_name}.bed',
-        source = ['$amr_bed',
-                  genome_cov],
-        action = '$bedtools intersect -a ${SOURCES[0]} -b ${SOURCES[1]} -wo > $TARGET'
-    )
-
-    amr_cov_csv, amr_summstats_cov = e.Command(
-        target = ['$out/$variants_out/${variant}_amr_cov_${ref_name}.csv',
-                  '$out/$variants_out/${variant}_amr_covsummstats_${ref_name}.csv'],
-        source = [amr_cov_bed,
-                  '$amr_csv'],
-        action = 'python $add_cov $SOURCES ${TARGETS[0]} --summstats_csv ${TARGETS[1]} --samplename $variant'
-    )
-
-    
-# ############## Filter Variant Calls by AMR Loci #################
-    
-    '''
 # ################### Filter Variant Calls by DP ######################
 
     gatk_cov_filtered = e.Command(
@@ -957,4 +949,4 @@ for specimen_id, metadata in specimens.items():
         action = ('echo \'CHROM,POS,REF,ALT,TYPE,INS_TYPE,LEN,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,ZYG,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG\' > $TARGET; '
                   'cat $SOURCES | sed \'/CHROM,POS,REF,ALT,TYPE,INS_TYPE,LEN,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,ZYG,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG/d\' >> $TARGET')
     )
-    '''
+    
