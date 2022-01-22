@@ -957,3 +957,9 @@ all_checked_csv = env.Command(
               'cat $SOURCES | sed \'/CHROM,POS,REF,ALT,TYPE,INS_TYPE,LEN,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,ZYG,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG/d\' >> $TARGET')
 )
 
+amr_annotate = env.Command(
+    target = '$out/$checked_out/${variant}_alltools_normalized_dp${min_read_depth}_${ref_name}_checked_amr-edit.csv',
+    source = [all_checked_csv,
+             'data/amr-edit.txt'],
+    action = 'python bin/annotate.py $SOURCES $TARGET'
+)
