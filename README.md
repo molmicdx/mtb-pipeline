@@ -24,13 +24,11 @@
 
 ### Calling sequenced variants
 
-1. Add FASTQ files to the `sequenced/output/reads` directory.
+1. Add/edit `manifest.csv` and `data.conf` in the `sequenced/configs/` directory.
 
 2. Configure pipeline parameters, including variant name, by editing the values in `sequenced/configs/settings.conf`.
 
 3. Run the pipeline from within the `sequenced` directory, as described in *Run the SCons pipeline*. 
-
-4. Checking variant calls is now implemented. Truth sets are in `sequenced/output/variants/`.
 
 ### The pipeline in bash
 
