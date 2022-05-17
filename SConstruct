@@ -137,7 +137,7 @@ env = Environment(
 )
 
 # Help(vars.GenerateHelpText(env))
-'''
+
 # ############### start inputs ################
 
 # ######### Index Reference Sequence #########
@@ -161,7 +161,7 @@ ref_dict = env.Command(
     source = '$reference',
     action = '$gatk CreateSequenceDictionary -R $SOURCE'
 )
-'''
+
 # ############# Simulate Variants #############
 simulated_variants_table, simulated_variants_fa = env.Command(
     target = ['$out/$variants_out/${variant}.txt',
