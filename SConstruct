@@ -129,7 +129,7 @@ env = Environment(
     discosnp = '{} run --pwd $cwd -B $cwd {}'.format(singularity, discosnp_img),
     freebayes = '{} exec -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} freebayes'.format(singularity, freebayes_img),
     #freebayes = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} freebayes'.format(docker, freebayes_img),
-    deepvariant = '{} run -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} /opt/deepvariant/bin/run_deepvariant'.format(singularity, deepvariant_img),
+    deepvariant = '{} exec -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} python3 /opt/deepvariant/bin/run_deepvariant.py'.format(singularity, deepvariant_img),
     #deepvariant = '{} run -v $cwd:/input -v $cwd:/output --rm {} /opt/deepvariant/bin/run_deepvariant'.format(docker, deepvariant_img),
     lancet = '{} exec -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} lancet'.format(singularity, lancet_img),
     vardict = '{} exec -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} vardict-java'.format(singularity, vardict_img)
@@ -165,7 +165,7 @@ ref_dict = env.Command(
 # ############# Simulate Variants #############
 simulated_variants_table, simulated_variants_fa = env.Command(
     target = ['$out/$variants_out/${variant}.txt',
-              '$out/$variants_out/${variant}.fa'], 
+              '$out/$variants_out/${variant}.fa'],
     source = '$reference',
     action = ('python bin/variants.py --settings $variants_config $SOURCE $TARGETS '
               ' > $log/$variants_out/${variant}.log 2>&1; '
@@ -394,7 +394,7 @@ bcftools_gvcf = env.Command(
     source = ['$reference',
               mq_filtered_bam],
     action = ('$bcftools bcftools mpileup -Ou -f $SOURCES -d $max_reads -a $bcftools_ann 2>$log/$called_out/$gvcf_out/${variant}_${bcftools_out}_${ref_name}.log | '
-              'bcftools call -Ov -m --gvcf 1 --ploidy-file $ploidy_file -o $TARGET 2>>$log/$called_out/$gvcf_out/${variant}_${bcftools_out}_${ref_name}.log')
+              '$bcftools bcftools call -Ov -m --gvcf 1 --ploidy-file $ploidy_file -o $TARGET 2>>$log/$called_out/$gvcf_out/${variant}_${bcftools_out}_${ref_name}.log')
 )
 
 bcftools_g_normalized = env.Command(
@@ -410,7 +410,7 @@ bcftools_vcf = env.Command(
     source = ['$reference',
               mq_filtered_bam],
     action = ('$bcftools bcftools mpileup -Ou -f $SOURCES -d $max_reads -a $bcftools_ann 2>$log/$called_out/$bcftools_out/${variant}_${bcftools_out}_${ref_name}.log | '
-              'bcftools call -Ov -mv --ploidy-file $ploidy_file -o $TARGET 2>>$log/$called_out/$bcftools_out/${variant}_${bcftools_out}_${ref_name}.log')
+              '$bcftools bcftools call -Ov -mv --ploidy-file $ploidy_file -o $TARGET 2>>$log/$called_out/$bcftools_out/${variant}_${bcftools_out}_${ref_name}.log')
 )
 
 bcftools_normalized = env.Command(
