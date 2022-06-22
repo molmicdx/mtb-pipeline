@@ -90,6 +90,8 @@ def check(vcf_reader, true_variants_reader, vcf_cov_reader):
             called['LEN'] = 1 # SNP size
         else:
             called['LEN'] = abs(size)
+        while called['POS'] != vcf_cov['POS']:
+            vcf_cov = next(vcf_cov_reader, None)
         if called['POS'] == vcf_cov['POS']:
             called['BAM_DP'] = vcf_cov['BAM_DP']
         if (vcf_record.CHROM, vcf_record.POS) <= (true_variant['CHROM'], int(true_variant['POS'])):
@@ -128,6 +130,8 @@ def check(vcf_reader, true_variants_reader, vcf_cov_reader):
     while vcf_record:
         called = get_variant_from_vcf_record(vcf_record)
         size = len(called['REF']) - len(called['ALT'])
+        while called['POS'] != vcf_cov['POS']:
+            vcf_cov = next(vcf_cov_reader, None)
         if called['POS'] == vcf_cov['POS']:
             called['BAM_DP'] = vcf_cov['BAM_DP']
         called['FALSE_POS'] = 1

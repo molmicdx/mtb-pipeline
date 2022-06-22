@@ -63,7 +63,6 @@ env = Environment(
     ref_name = config.get('DEFAULT', 'reference_name'),
     accession = config.get('DEFAULT', 'reference_accession'),
     variant = config.get('variant_simulation', 'variant_name'),
-    mock_variant = config.get('variant_simulation', 'mock'),
     variants_config = config.get('variant_simulation', 'variants_config'),
     amr_bed = config.get('DEFAULT', 'reference_amr_bed'),
     amr_csv = config.get('DEFAULT', 'reference_amr_csv'),
@@ -260,10 +259,10 @@ mq_filtered_bam = env.Command(
     action = ('$samtools view $SOURCE -q $mapq -bo $TARGET; '
               '$samtools index $TARGET')
 )
-
+'''
 genome_cov = env.Command(
     target = '$out/$variants_out/${variant}_deduped_mq10_genomecov_${ref_name}.bed',
-    source = mq_filtered_bam,
+    source = '$out/$deduped_out/${variant}_deduped_mq_${ref_name}.bam', #mq_filtered_bam,
     action = '$bedtools genomecov -ibam $SOURCE -bga > $TARGET'
 )
 
@@ -280,7 +279,7 @@ meandepth = env.Command(
 variant_formatted_csv, variant_bed = env.Command(
     target = ['$out/$variants_out/${variant}_formatted_${ref_name}.csv',
               '$out/$variants_out/${variant}_${ref_name}.bed'],
-    source = '$out/$variants_out/${mock_variant}_normalized.vcf',
+    source = '$out/$variants_out/${variant}_normalized.vcf',
     action = ('python $to_csv $SOURCE ${TARGETS[0]} --sample $variant; '
               'python $to_bed $TARGETS --split_mut $mutation_to_flank --bp $num_flanking_bp')
 )
@@ -312,7 +311,7 @@ amr_cov_csv, amr_summstats_cov = env.Command(
               '$amr_csv'],
     action = 'python $add_cov $SOURCES ${TARGETS[0]} --summstats_csv ${TARGETS[1]} --sample $variant'
 )
-
+'''
 
 # ############### end inputs ##################
 
@@ -959,7 +958,7 @@ all_checked_csv = env.Command(
 
 amr_annotate = env.Command(
     target = '$out/$checked_out/${variant}_alltools_normalized_dp${min_read_depth}_${ref_name}_checked_amr-edit.csv',
-    source = [all_checked_csv,
+    source = ['$out/$checked_out/${variant}_alltools_normalized_dp${min_read_depth}_${ref_name}_checked.csv', #all_checked_csv,
              'data/amr-edit.txt'],
     action = 'python bin/annotate.py $SOURCES $TARGET'
 )
