@@ -1,5 +1,7 @@
-# README
-
+# Identifying indels from WGS short reads of haploid genomes distinguishes variant-calling algorithms
+## Abstract
+Indel-containing reads are challenging to map to unique and correct genomic locations. We expand on previous efforts to validate bacterial variant-calling by developing a toolkit for introducing synthetic variants into the _Mycobacterium tuberculosis_ H37Rv reference genome, and measuring the precision and recall of seven variant callers in identifying SNPs, as well as small insertions and deletions. We used these _in silico_ altered genomes to test the performance of bcftools, DeepVariant, DiscoSNP, FreeBayes, GATK HaplotypeCaller, Lancet, and VarDict (Java implementation). These variant callers are widely used, have good documentation, and appear to be actively maintained within the last five years. Algorithms for identifying sequence variants from short reads can be broadly categorized into reference-based methods that rely on mapping reads onto a curated reference genome, and newer reference-free methods that construct deBruijn graphs of k-mers; some methods are a hybrid of both. All the variant callers we tested were reference-based methods, except for DiscoSNP.
+## Pipeline
 ### Create virtual environment
 
 1. Set up the virtual environment: `./create_venv.sh`.
