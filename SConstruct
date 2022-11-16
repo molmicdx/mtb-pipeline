@@ -23,7 +23,6 @@ freebayes_img = config.get('singularity', 'freebayes')
 deepvariant_img = config.get('singularity', 'deepvariant')
 vardict_img = config.get('singularity', 'vardict')
 lancet_img = config.get('singularity', 'lancet')
-docker = config.get('docker', 'docker')
 
 from SCons.Script import (Environment, Variables, Help, Decider)
 
@@ -53,7 +52,6 @@ vars.Add('nproc', 'Number of concurrent processes', default=12)
 # SHELLOPTS sets shell options to fail (including piped commands) with
 # nonzero exit status; this requires bash.
 env = Environment(
-   # ENV = dict(os.environ, PATH=PATH, SHELLOPTS='errexit:pipefail'),
     ENV = dict(os.environ, PATH=PATH),
     variables = vars,
     SHELL = 'bash',
@@ -64,8 +62,6 @@ env = Environment(
     accession = config.get('DEFAULT', 'reference_accession'),
     variant = config.get('variant_simulation', 'variant_name'),
     variants_config = config.get('variant_simulation', 'variants_config'),
-    amr_bed = config.get('DEFAULT', 'reference_amr_bed'),
-    amr_csv = config.get('DEFAULT', 'reference_amr_csv'),
     to_csv = config.get('variant_simulation', 'to_csv_script'),
     to_bed = config.get('variant_simulation', 'to_bed_script'),
     add_cov = config.get('variant_simulation', 'add_cov_script'),
@@ -127,12 +123,9 @@ env = Environment(
     bedtools = '{} exec -B $cwd {} bedtools'.format(singularity, bedtools_img),
     discosnp = '{} run --pwd $cwd -B $cwd {}'.format(singularity, discosnp_img),
     freebayes = '{} exec -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} freebayes'.format(singularity, freebayes_img),
-    #freebayes = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} freebayes'.format(docker, freebayes_img),
     deepvariant = '{} exec -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} python3 /opt/deepvariant/bin/run_deepvariant.py'.format(singularity, deepvariant_img),
-    #deepvariant = '{} run -v $cwd:/input -v $cwd:/output --rm {} /opt/deepvariant/bin/run_deepvariant'.format(docker, deepvariant_img),
     lancet = '{} exec -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} lancet'.format(singularity, lancet_img),
     vardict = '{} exec -B /mnt/disk2/molmicro,/mnt/disk15/molmicro,$cwd {} vardict-java'.format(singularity, vardict_img)
-    #vardict = '{} run -v $cwd:$cwd -w $cwd -i -t --rm {} vardict-java'.format(docker, vardict_img)
 )
 
 # Help(vars.GenerateHelpText(env))
@@ -162,12 +155,13 @@ ref_dict = env.Command(
 )
 
 # ############# Simulate Variants #############
-simulated_variants_table, simulated_variants_fa = env.Command(
+simulated_variants_table, simulated_variants_fa, simvarlog = env.Command(
     target = ['$out/$variants_out/${variant}.txt',
-              '$out/$variants_out/${variant}.fa'],
+              '$out/$variants_out/${variant}.fa',
+              '$log/$variants_out/${variant}.log'],
     source = '$reference',
-    action = ('python bin/variants.py --settings $variants_config $SOURCE $TARGETS '
-              ' > $log/$variants_out/${variant}.log 2>&1; '
+    action = ('python bin/variants.py --settings $variants_config $SOURCE ${TARGETS[0]} '
+              '${TARGETS[1]} > ${TARGETS[2]} 2>&1; '
               'cat $variants_config > $log/$variants_out/${variant}_variants_settings.conf')
 )
 
@@ -259,7 +253,7 @@ mq_filtered_bam = env.Command(
     action = ('$samtools view $SOURCE -q $mapq -bo $TARGET; '
               '$samtools index $TARGET')
 )
-'''
+
 genome_cov = env.Command(
     target = '$out/$variants_out/${variant}_deduped_mq10_genomecov_${ref_name}.bed',
     source = '$out/$deduped_out/${variant}_deduped_mq_${ref_name}.bam', #mq_filtered_bam,
@@ -295,24 +289,6 @@ variant_cov_bed, variant_cov_csv = env.Command(
 )
 
 
-# ################### Get AMR Loci Coverage  ######################
-
-amr_cov_bed = env.Command(
-    target = '$out/$variants_out/${variant}_amr_cov_${ref_name}.bed',
-    source = ['$amr_bed',
-              genome_cov],
-    action = '$bedtools intersect -a ${SOURCES[0]} -b ${SOURCES[1]} -wo > $TARGET'
-)
-
-amr_cov_csv, amr_summstats_cov = env.Command(
-    target = ['$out/$variants_out/${variant}_amr_cov_${ref_name}.csv',
-              '$out/$variants_out/${variant}_amr_covsummstats_${ref_name}.csv'],
-    source = [amr_cov_bed,
-              '$amr_csv'],
-    action = 'python $add_cov $SOURCES ${TARGETS[0]} --summstats_csv ${TARGETS[1]} --sample $variant'
-)
-'''
-
 # ############### end inputs ##################
 
 # ################# Call Variants #####################
@@ -323,32 +299,28 @@ gatk_gvcf = env.Command(
     target = '$out/$called_out/$gvcf_out/${variant}_${gatk_out}_${ref_name}.g.vcf',
     source = ['$reference',
               mq_filtered_bam],
-    action = ('$gatk HaplotypeCaller -ploidy $ploidy -R ${SOURCES[0]} -I ${SOURCES[1]} '
-              '-O $TARGET -ERC GVCF > $log/$called_out/$gvcf_out/${variant}_${gatk_out}_haplotypecaller_${ref_name}.log 2>&1')
+    action = '$gatk HaplotypeCaller -ploidy $ploidy -R ${SOURCES[0]} -I ${SOURCES[1]} -O $TARGET -ERC GVCF'
 )
 
 gatk_gt = env.Command(
     target = '$out/$called_out/$gatk_out/${variant}_${gatk_out}_${ref_name}.vcf',
     source = ['$reference',
               gatk_gvcf],
-    action = ('$gatk GenotypeGVCFs -R ${SOURCES[0]} -V ${SOURCES[1]} '
-              '-O $TARGET > $log/$called_out/$gatk_out/${variant}_${gatk_out}_genotypegvcfs_${ref_name}.log 2>&1')
+    action = '$gatk GenotypeGVCFs -R ${SOURCES[0]} -V ${SOURCES[1]} -O $TARGET' 
 )
 
 gatk_g_normalized = env.Command(
     target = '$out/$called_out/$gvcf_out/${variant}_${gatk_out}_normalized_${ref_name}.g.vcf',
     source = ['$reference',
               gatk_gvcf],
-    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
-              '-O $TARGET > $log/$called_out/$gvcf_out/${variant}_${gatk_out}_normalized_${ref_name}.g.log 2>&1')
+    action = '$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} -O $TARGET'
 )
 
 gatk_normalized = env.Command(
     target = '$out/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_${ref_name}.vcf',
     source = ['$reference',
               gatk_gt],
-    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
-              '-O $TARGET > $log/$called_out/$gatk_out/${variant}_${gatk_out}_normalized_${ref_name}.log 2>&1')
+    action = '$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} -O $TARGET' 
 )
 
 gatk_bgz = env.Command(
@@ -364,7 +336,7 @@ gatk_tbi, gatk_igv = env.Command(
               '$reference',
               mq_filtered_bam],
     action = ('tabix -f ${SOURCES[0]}; create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
-              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > $log/$igv_out/$gatk_out/${variant}_${gatk_out}_igv_${ref_name}.log 2>&1')
+              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]}')
 )
 
 gatk_csv, gatk_bed = env.Command(
@@ -392,32 +364,30 @@ bcftools_gvcf = env.Command(
     target = '$out/$called_out/$gvcf_out/${variant}_${bcftools_out}_${ref_name}.g.vcf',
     source = ['$reference',
               mq_filtered_bam],
-    action = ('$bcftools bcftools mpileup -Ou -f $SOURCES -d $max_reads -a $bcftools_ann 2>$log/$called_out/$gvcf_out/${variant}_${bcftools_out}_${ref_name}.log | '
-              '$bcftools bcftools call -Ov -m --gvcf 1 --ploidy-file $ploidy_file -o $TARGET 2>>$log/$called_out/$gvcf_out/${variant}_${bcftools_out}_${ref_name}.log')
+    action = ('$bcftools bcftools mpileup -Ou -f $SOURCES -d $max_reads -a $bcftools_ann | '
+              '$bcftools bcftools call -Ov -m --gvcf 1 --ploidy-file $ploidy_file -o $TARGET')
 )
 
 bcftools_g_normalized = env.Command(
     target = '$out/$called_out/$gvcf_out/${variant}_${bcftools_out}_normalized_${ref_name}.g.vcf',
     source = ['$reference',
               bcftools_gvcf],
-    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
-              '-O $TARGET > $log/$called_out/$gvcf_out/${variant}_${bcftools_out}_normalized_${ref_name}.g.log 2>&1')
+    action = '$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} -O $TARGET'
 )
 
 bcftools_vcf = env.Command(
     target = '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_${ref_name}.vcf',
     source = ['$reference',
               mq_filtered_bam],
-    action = ('$bcftools bcftools mpileup -Ou -f $SOURCES -d $max_reads -a $bcftools_ann 2>$log/$called_out/$bcftools_out/${variant}_${bcftools_out}_${ref_name}.log | '
-              '$bcftools bcftools call -Ov -mv --ploidy-file $ploidy_file -o $TARGET 2>>$log/$called_out/$bcftools_out/${variant}_${bcftools_out}_${ref_name}.log')
+    action = ('$bcftools bcftools mpileup -Ou -f $SOURCES -d $max_reads -a $bcftools_ann | '
+              '$bcftools bcftools call -Ov -mv --ploidy-file $ploidy_file -o $TARGET')
 )
 
 bcftools_normalized = env.Command(
     target = '$out/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_${ref_name}.vcf',
     source = ['$reference',
               bcftools_vcf],
-    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
-              '-O $TARGET > $log/$called_out/$bcftools_out/${variant}_${bcftools_out}_normalized_${ref_name}.log 2>&1')
+    action = '$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} -O $TARGET '
 )
 
 bcftools_bgz = env.Command(
@@ -434,7 +404,7 @@ bcftools_tbi, bcftools_igv = env.Command(
               mq_filtered_bam],
     action = ('tabix -f ${SOURCES[0]}; '
               'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
-              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > $log/$igv_out/$bcftools_out/${variant}_${bcftools_out}_igv_${ref_name}.log 2>&1')
+              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]}')
 )
 
 bcftools_csv, bcftools_bed = env.Command(
@@ -481,16 +451,14 @@ freebayes_g_normalized = env.Command(
     target = '$out/$called_out/$gvcf_out/${variant}_${freebayes_out}_normalized_${ref_name}.g.vcf',
     source = ['$reference',
               freebayes_gvcf],
-    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
-              '-O $TARGET > $log/$called_out/$gvcf_out/${variant}_${freebayes_out}_normalized_${ref_name}.g.log 2>&1')
+    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} -O $TARGET')
 )
 
 freebayes_normalized = env.Command(
     target = '$out/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized_${ref_name}.vcf',
     source = ['$reference',
               freebayes_vcf],
-    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
-              '-O $TARGET > $log/$called_out/$freebayes_out/${variant}_${freebayes_out}_normalized_${ref_name}.log 2>&1')
+    action = '$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} -O $TARGET'
 )
 
 freebayes_bgz = env.Command(
@@ -507,7 +475,7 @@ freebayes_tbi, freebayes_igv = env.Command(
               mq_filtered_bam],
     action = ('tabix -f ${SOURCES[0]}; '
               'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
-              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > $log/$igv_out/$freebayes_out/${variant}_${freebayes_out}_igv_${ref_name}.log 2>&1')
+              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]}')
 )
 
 freebayes_csv, freebayes_bed = env.Command(
@@ -538,23 +506,21 @@ deepvariant_gvcf, deepvariant_vcf = env.Command(
               mq_filtered_bam],
     action = ('$deepvariant --model_type=WGS --ref=${SOURCES[0]} --reads=${SOURCES[1]} '
               '--output_gvcf=${TARGETS[0]} --output_vcf=${TARGETS[1]} --num_shards=$max_threads '
-              '--logging_dir=$log/$called_out/${deepvariant_out}/ > $log/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_${ref_name}.log 2>&1')
+              '--logging_dir=$out/$called_out/$deepvariant_out/')
 )
 
 deepvariant_g_normalized = env.Command(
     target = '$out/$called_out/$gvcf_out/${variant}_${deepvariant_out}_normalized_${ref_name}.g.vcf',
     source = ['$reference',
               deepvariant_gvcf],
-    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
-              '-O $TARGET > $log/$called_out/$gvcf_out/${variant}_${deepvariant_out}_normalized_${ref_name}.g.log 2>&1')
+    action = '$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} -O $TARGET'
 )
 
 deepvariant_normalized = env.Command(
     target = '$out/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_${ref_name}.vcf',
     source = ['$reference',
               deepvariant_vcf],
-    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
-              '-O $TARGET > $log/$called_out/$deepvariant_out/${variant}_${deepvariant_out}_normalized_${ref_name}.log 2>&1')
+    action = '$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} -O $TARGET'
 )
 
 deepvariant_pass = env.Command(
@@ -577,7 +543,7 @@ deepvariant_tbi, deepvariant_igv = env.Command(
               mq_filtered_bam],
     action = ('tabix -f ${SOURCES[0]}; '
               'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
-              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > $log/$igv_out/$deepvariant_out/${variant}_${deepvariant_out}_igv_${ref_name}.log 2>&1')
+              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]}')
 )
 
 deepvariant_csv, deepvariant_bed = env.Command(
@@ -608,15 +574,14 @@ lancet_vcf = env.Command(
               '$out/$deduped_out/${ref_name}_deduped_mq_${ref_name}.bam'],
     action = ('$lancet --tumor ${SOURCES[1]} --normal ${SOURCES[2]} --ref ${SOURCES[0]} '
               '--reg $accession --min-vaf-tumor $allele_fraction --low-cov $min_read_depth '
-              '--num-threads $max_threads > $TARGET 2>$log/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}.log; ')
+              '--num-threads $max_threads > $TARGET')
 )
 
 lancet_normalized = env.Command(
     target = '$out/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}_normalized.vcf',
     source = ['$reference',
               lancet_vcf],
-    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
-              '-O $TARGET > $log/$called_out/$lancet_out/${variant}_${ref_name}_${lancet_out}_normalized.log 2>&1')
+    action = '$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} -O $TARGET'
 )
 
 lancet_pass = env.Command(
@@ -630,7 +595,7 @@ lancet_final_vcf = env.Command(
     source = lancet_pass,
     action = ('for sample in $$(zgrep -m 1 "^#CHROM" $SOURCE | cut -f10-); do '
               '    $bcftools bcftools view -c 1 -Ov -s $$sample -o $out/$called_out/$lancet_out/$$sample\'_${lancet_out}_normalized_PASS.vcf\' $SOURCE; done; '
-              '$gatk SortVcf -I $out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_PASS.vcf -O $TARGET > $log/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_PASSsorted_${ref_name}.log 2>&1; '
+              '$gatk SortVcf -I $out/$called_out/$lancet_out/${variant}_${lancet_out}_normalized_PASS.vcf -O $TARGET; '
               'rm $out/$called_out/$lancet_out/${ref_name}_${lancet_out}_normalized_PASS.vcf')
 )
 
@@ -648,7 +613,7 @@ lancet_tbi, lancet_igv = env.Command(
               mq_filtered_bam],
     action = ('tabix -f ${SOURCES[0]}; '
               'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
-              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > $log/$igv_out/$lancet_out/${variant}_${lancet_out}_igv_${ref_name}.log 2>&1')
+              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]}')
 )
 
 lancet_csv, lancet_bed = env.Command(
@@ -700,7 +665,7 @@ discosnp_vcf = env.Command(
               fof],
     action = ('$discosnp $out -r ../${SOURCES[1]} -P $snp_per_bubble '
               '-b $disco_mode -k $kmer_size -c $coverage -T -l '
-              '-G ../${SOURCES[0]} -p ${ref_name}_${variant} -u $max_threads > $log/$called_out/${ref_name}_${variant}_discosnp.log 2>&1; '
+              '-G ../${SOURCES[0]} -p ${ref_name}_${variant} -u $max_threads; '
               'mv $out/${ref_name}_${variant}* $out/$called_out/$discosnp_out/; '
 	      'sed -i \'s/INDEL_.*_path_[0-9]*/${accession}/g\' $TARGET') #temp fix for inexplicable VCF entry; may falsely inflate false positive calls
 )
@@ -709,8 +674,7 @@ discosnp_normalized = env.Command(
     target = '$out/$called_out/$discosnp_out/${ref_name}_${variant}_discosnp_normalized.vcf',
     source = ['$reference',
               discosnp_vcf],
-    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
-              '-O $TARGET > $log/$called_out/$discosnp_out/${ref_name}_${variant}_discosnp_normalized.log 2>&1')
+    action = '$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} -O $TARGET'
 )
 
 discosnp_formatted = env.Command(
@@ -737,7 +701,7 @@ discosnp_pass = env.Command(
 discosnp_pass_sorted = env.Command(
     target = '$out/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted_${ref_name}.vcf',
     source = discosnp_pass,
-    action = '$gatk SortVcf -I $SOURCE -O $TARGET > $log/$called_out/$discosnp_out/${variant}_discosnp-edit_normalized_PASSsorted_${ref_name}.log 2>&1 '
+    action = '$gatk SortVcf -I $SOURCE -O $TARGET'
 )
 
 discosnp_bgz = env.Command(
@@ -754,7 +718,7 @@ discosnp_tbi, discosnp_igv = env.Command(
               mq_filtered_bam],
     action = ('tabix -f ${SOURCES[0]}; '
               'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
-              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > $log/$igv_out/$discosnp_out/${variant}_${discosnp_out}_igv_${ref_name}.log 2>&1')
+              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]}')
 )
 
 discosnp_csv, discosnp_bed = env.Command(
@@ -799,8 +763,7 @@ vardict_normalized = env.Command(
     target = '$out/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_${ref_name}.vcf',
     source = ['$reference',
               vardict_vcf],
-    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} '
-              '-O $TARGET > $log/$called_out/$vardict_out/${variant}_${vardict_out}_normalized_${ref_name}.log 2>&1')
+    action = '$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]} -O $TARGET'
 )
 
 vardict_bgz = env.Command(
@@ -818,7 +781,7 @@ vardict_tbi, vardict_igv = env.Command(
               mq_filtered_bam],
     action = ('tabix -f ${SOURCES[0]}; '
               'create_report ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank --info-columns $igv_info '
-              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]} > $log/$igv_out/$vardict_out/${variant}_${vardict_out}_igv_${ref_name}.log 2>&1')
+              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]}')
 )
 
 vardict_csv, vardict_bed = env.Command(
@@ -956,9 +919,3 @@ all_checked_csv = env.Command(
               'cat $SOURCES | sed \'/CHROM,POS,REF,ALT,TYPE,INS_TYPE,LEN,QUAL,AD_REF,AD_ALT,DP,BAM_DP,GT,ZYG,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,FALSE_NEG/d\' >> $TARGET')
 )
 
-amr_annotate = env.Command(
-    target = '$out/$checked_out/${variant}_alltools_normalized_dp${min_read_depth}_${ref_name}_checked_amr-edit.csv',
-    source = ['$out/$checked_out/${variant}_alltools_normalized_dp${min_read_depth}_${ref_name}_checked.csv', #all_checked_csv,
-             'data/amr-edit.txt'],
-    action = 'python bin/annotate.py $SOURCES $TARGET'
-)
