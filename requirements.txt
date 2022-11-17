@@ -1,6 +1,1 @@
-fastalite==0.3
-igv-reports==1.0.5
-numpy==1.22.3
-pysam==0.19.0
-scons==4.3.0
-vcfpy==0.13.4
+scons
