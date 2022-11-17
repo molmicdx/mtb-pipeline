@@ -1,0 +1,19 @@
+Bootstrap: docker
+From: debian
+
+%help
+    This is to build and run htslib-1.15
+
+%post
+    apt-get update -y && apt-get install -y --no-install-recommends git make g++ gcc zlib1g-dev libbz2-dev liblzma-dev wget tar bzip2
+    git config --global http.sslVerify false 
+    wget https://github.com/samtools/htslib/releases/download/1.15/htslib-1.15.tar.bz2 --no-check-certificate
+    tar -xvf htslib-1.15.tar.bz2
+    cd htslib-1.15
+    ./configure
+    make
+    make install
+
+%runscript
+    exec bgzip "$@"
+    exec tabix "$@"

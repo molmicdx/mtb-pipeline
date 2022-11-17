@@ -1,0 +1,12 @@
+Bootstrap: docker
+From: debian
+
+%help
+    This is to build and run igv-reports-1.0.4
+
+%post
+    apt-get update -y && apt-get install -y --no-install-recommends pip
+    pip install igv-reports
+
+%runscript
+    exec create_report "$@"
