@@ -1,0 +1,65 @@
+Bootstrap: docker
+From: debian
+
+
+%help
+
+This will run DiscoSnp++.
+
+
+%labels
+
+    Maintainer NadiyaSitdykova
+
+    Version v1.0
+
+
+%environment
+
+    DIR=/opt
+
+    MTG_VERSION=2.2.10
+
+    DEBIAN_FRONTEND=noninteractive
+
+    SOURCE=DiscoSnp
+
+    SOURCEKC=kissnp2
+
+    BUILD=build
+
+    export DIR MTG_VERSION DEBIAN_FRONTEND PACKAGES SOURCE SOURCEKS BUILD
+
+%post
+
+    cd /opt    
+
+    apt-get update -y && apt-get install -y --no-install-recommends wget gcc g++ make cmake zlib1g-dev git python bwa
+    
+    git config --global http.sslVerify false
+
+    # clone the github repo
+    git clone --recursive https://github.com/NadiyaSitdykova/DiscoSnp.git   
+    
+    cd DiscoSnp
+    git submodule init
+    git checkout version2
+    git submodule update
+
+    mkdir build
+    cd build
+
+    cmake ..
+    make
+
+    cd ../..
+   
+    ln -s DiscoSnp/build/bin/kissnp2 /usr/local/bin
+
+%runscript
+    
+    cd "$1"
+
+    shift
+
+    exec /opt/DiscoSnp/run_discoSnp++.sh "$@"

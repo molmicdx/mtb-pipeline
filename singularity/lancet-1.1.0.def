@@ -1,0 +1,16 @@
+Bootstrap: docker
+From: debian
+
+%help
+    This is to build and run lancet 1.1.0.
+
+%post
+    apt-get update -y && apt-get install -y --no-install-recommends git g++ make cmake liblzma-dev zlib1g-dev libbz2-dev libcurl3-dev libssl-dev
+    git config --global http.sslVerify false
+    git clone --recursive https://github.com/nygenome/lancet
+    cd lancet && make all -j$(nproc) && make lancet -j$(nproc)
+    mkdir /lancet/bin
+    cp /lancet/lancet /usr/local/bin
+    PATH=$PATH:/lancet/bin
+%runscript
+    exec lancet "$@"
