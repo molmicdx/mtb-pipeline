@@ -14,6 +14,14 @@ Indel-containing reads are challenging to map to unique and correct genomic loca
 
 2. Configure other parameters, including variant name, by editing the values in `configs/settings.conf`. 
 
+### Setting up containers
+
+1. The containerized tools used by the pipeline are listed in the [images] section of `configs/settings.conf`. Since the containers themselves are not included in this repo, they have to be obtained before running the pipeline.
+
+2. Docker containers that are used here are automatically pulled by the pipeline from the links listed in [images].
+
+3. Singularity containers need to first be downloaded from the [Sylabs Cloud Library](https://cloud.sylabs.io/library/seahym) into the `singularity` directory, or built using the definition files provided in the same directory. 
+
 ### Run the SCons pipeline
 
 1. Dry run: `scons -n`.
