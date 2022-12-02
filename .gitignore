@@ -1,15 +1,5 @@
 __pycache__/
 .sconsign.dblite
-output/bgzipped/*
-output/called/*
-output/checked/*
-output/deduped/*
-output/igv_reports/*
-output/mapped/*
-output/reads/*
-output/variants/*
-logs/deduped/*
-logs/mapped/*
-logs/reads/*
-logs/variants/*
+output/
+logs/
 
