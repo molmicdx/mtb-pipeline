@@ -25,6 +25,7 @@ freebayes_img = config.get('images', 'freebayes')
 deepvariant_img = config.get('images', 'deepvariant')
 vardict_img = config.get('images', 'vardict')
 lancet_img = config.get('images', 'lancet')
+octopus_img = config.get('images', 'octopus')
 htslib_img = config.get('images', 'htslib')
 igv_img = config.get('images', 'igv-reports')
 py_img = config.get('images', 'py-deps')
@@ -63,7 +64,6 @@ env = Environment(
     cwd = os.getcwd(),
     venv_config = config.get('DEFAULT', 'virtualenv'),
     ref_dir = config.get('DEFAULT', 'reference_dir'),
-    reference = config.get('DEFAULT', 'reference_genome'),
     ref_name = config.get('DEFAULT', 'reference_name'),
     accession = config.get('DEFAULT', 'reference_accession'),
     sample = config.get('variant_simulation', 'variant_name'),
@@ -87,6 +87,7 @@ env = Environment(
     vardict_scripts = config.get('variant_calling', 'vardict_scripts'),
     vardict_out = config.get('variant_calling', 'vardict_output'),
     lancet_out = config.get('variant_calling', 'lancet_output'),
+    octopus_out = config.get('variant_calling', 'octopus_output'),
     min_reads = config.get('variant_calling', 'min_reads'),
     max_reads = config.get('variant_calling', 'max_reads'),
     rg_pl = config.get('read_mapping', 'read_group_PL'),
@@ -111,6 +112,7 @@ env = Environment(
                   .format(singularity, deepvariant_img),
     lancet = '{} exec -B $cwd {} lancet'.format(singularity, lancet_img),
     vardict = '{} exec -B $cwd {} vardict-java'.format(singularity, vardict_img),
+    octopus = '{} exec -B $cwd {} octopus'.format(singularity, octopus_img),
     bgzip = '{} exec -B $cwd {} bgzip'.format(singularity, htslib_img),
     tabix = '{} exec -B $cwd {} tabix'.format(singularity, htslib_img),
     igv = '{} exec -B $cwd {} create_report'.format(singularity, igv_img),
@@ -124,22 +126,22 @@ env = Environment(
 # ######### Index Reference Sequence #########
 
 fa_index = env.Command(
-    target = '${ref_dir}/${reference}.fa.fai',
-    source = '${ref_dir}/${reference}.fa',
+    target = '${ref_dir}/${ref_name}.fa.fai',
+    source = '${ref_dir}/${ref_name}.fa',
     action = '$samtools faidx $SOURCE'
 )
 
 bwa_idx = env.Command(
-    target = '${ref_dir}/${reference}.fa.bwt',
-    source = '${ref_dir}/${reference}.fa',
+    target = '${ref_dir}/${ref_name}.fa.bwt',
+    source = '${ref_dir}/${ref_name}.fa',
     action = '$bwa index $SOURCE'
 )
 
 # ######## Create Reference Seq Dictionary ########
 
 ref_dict = env.Command(
-    target = '${ref_dir}/${reference}.dict',
-    source = '${ref_dir}/${reference}.fa',
+    target = '${ref_dir}/${ref_name}.dict',
+    source = '${ref_dir}/${ref_name}.fa',
     action = '$gatk CreateSequenceDictionary -R $SOURCE'
 )
 
@@ -148,7 +150,7 @@ simulated_variants_table, simulated_variants_fa, svlog = env.Command(
     target = ['$out/${sample}/variants_table.txt',
               '$out/${sample}/variant_genome.fa',
               '$log/${sample}/variants.log'], 
-    source = '${ref_dir}/${reference}.fa',
+    source = '${ref_dir}/${ref_name}.fa',
     action = ('$py_deps bin/variants.py --settings $variants_config $SOURCE '
               '${TARGETS[0]} ${TARGETS[1]} > ${TARGETS[-1]} 2>&1 ')
 )
@@ -163,7 +165,7 @@ simulated_variant_vcf = env.Command(
 normalized_variant_vcf = env.Command(
     target = '$out/${sample}/variants_normalized.vcf', 
     source = simulated_variant_vcf,
-    action = ('$gatk LeftAlignAndTrimVariants -R ${ref_dir}/${reference}.fa '
+    action = ('$gatk LeftAlignAndTrimVariants -R ${ref_dir}/${ref_name}.fa '
               '-V $SOURCE -O $TARGET > $log/${sample}/normalized.log 2>&1')
 )
 
@@ -172,7 +174,7 @@ normalized_variant_vcf = env.Command(
 ref_R1, ref_R2 = env.Command(
     target = ['$out/${ref_name}/R1.fq',
               '$out/${ref_name}/R2.fq'],
-    source = '${ref_dir}/${reference}.fa',
+    source = '${ref_dir}/${ref_name}.fa',
     action = ('$art -1 ${ref_dir}/${read1_q} -2 ${ref_dir}/${read2_q} -p -sam '
               '-i $SOURCE -l $read_len -f $read_depth -m $frag_len -s $sd '
               '-o $out/${ref_name}/R')
@@ -236,7 +238,7 @@ seq_log = env.Command(
 
 ref_sam = env.Command(
     target = '$out/${ref_name}/trimmed.sam',
-    source = ['${ref_dir}/${reference}.fa',
+    source = ['${ref_dir}/${ref_name}.fa',
               refR1trimmed, refR2trimmed],
     action = ('$bwa mem $SOURCES -K 100000000 -R '
 	      '\'@RG\\tID:${accession}\\tLB:LB_${accession}\\tPL:${rg_pl} \\tPU:${rg_pu}\\tSM:${accession}\' > $TARGET ')
@@ -250,7 +252,7 @@ ref_sorted_bam = env.Command(
 
 sam = env.Command(
     target = '$out/${sample}/trimmed.sam',
-    source = ['${ref_dir}/${reference}.fa',
+    source = ['${ref_dir}/${ref_name}.fa',
               R1trimmed, R2trimmed],
     action = ('$bwa mem $SOURCES -K 100000000 -R '
 	      '\'@RG\\tID:${sample}\\tLB:LB_${sample}\\tPL:${rg_pl} \\tPU:${rg_pu}\\tSM:${sample}\' > $TARGET '
@@ -347,7 +349,7 @@ variant_cov_bed, variant_cov_csv = env.Command(
 
 gatk_gvcf = env.Command(
     target = '$out/${sample}/${gatk_out}/sample.g.vcf',
-    source = ['${ref_dir}/${reference}.fa',
+    source = ['${ref_dir}/${ref_name}.fa',
               mq_filtered_bam],
     action = ('$gatk HaplotypeCaller -ploidy 1 -R ${SOURCES[0]} '
               '-I ${SOURCES[1]} -O $TARGET -ERC GVCF')
@@ -355,7 +357,7 @@ gatk_gvcf = env.Command(
 
 gatk_gt = env.Command(
     target = '$out/${sample}/${gatk_out}/sample.vcf',
-    source = ['${ref_dir}/${reference}.fa',
+    source = ['${ref_dir}/${ref_name}.fa',
               gatk_gvcf],
     action = ('$gatk GenotypeGVCFs -R ${SOURCES[0]} -V ${SOURCES[1]} '
               '-O $TARGET')
@@ -363,7 +365,7 @@ gatk_gt = env.Command(
 
 gatk_g_normalized = env.Command(
     target = '$out/${sample}/${gatk_out}/sample_normalized.g.vcf',
-    source = ['${ref_dir}/${reference}.fa',
+    source = ['${ref_dir}/${ref_name}.fa',
               gatk_gvcf, 
               ref_dict],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} '
@@ -372,7 +374,7 @@ gatk_g_normalized = env.Command(
 
 gatk_normalized = env.Command(
     target = '$out/${sample}/${gatk_out}/sample_normalized.vcf',
-    source = ['${ref_dir}/${reference}.fa',
+    source = ['${ref_dir}/${ref_name}.fa',
               gatk_gt,
               ref_dict],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} '
@@ -389,7 +391,7 @@ gatk_tbi, gatk_igv = env.Command(
     target = ['$out/${sample}/${gatk_out}/sample_normalized.vcf.gz.tbi',
               '$out/${sample}/${gatk_out}/igv.html'],
     source = [gatk_bgz,
-              '${ref_dir}/${reference}.fa',
+              '${ref_dir}/${ref_name}.fa',
               mq_filtered_bam],
     action = ('$tabix -f ${SOURCES[0]}; $igv ${SOURCES[0]} ${SOURCES[1]} '
               '--flanking $igv_flank --info-columns $igv_info '
@@ -422,7 +424,7 @@ gatk_cov_bed, gatk_cov_csv = env.Command(
 
 bcftools_gvcf = env.Command(
     target = '$out/${sample}/${bcftools_out}/sample.g.vcf',
-    source = ['${ref_dir}/${reference}.fa',
+    source = ['${ref_dir}/${ref_name}.fa',
               mq_filtered_bam],
     action = ('$bcftools bcftools mpileup -Ou -f $SOURCES -d $max_reads '
               '-a $bcftools_ann | '
@@ -432,7 +434,7 @@ bcftools_gvcf = env.Command(
 
 bcftools_g_normalized = env.Command(
     target = '$out/${sample}/${bcftools_out}/sample_normalized.g.vcf',
-    source = ['${ref_dir}/${reference}.fa',
+    source = ['${ref_dir}/${ref_name}.fa',
               bcftools_gvcf,
               ref_dict],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} '
@@ -441,7 +443,7 @@ bcftools_g_normalized = env.Command(
 
 bcftools_vcf = env.Command(
     target = '$out/${sample}/${bcftools_out}/sample.vcf',
-    source = ['${ref_dir}/${reference}.fa',
+    source = ['${ref_dir}/${ref_name}.fa',
               mq_filtered_bam],
     action = ('$bcftools bcftools mpileup -Ou -f $SOURCES -d $max_reads '
               '-a $bcftools_ann | '
@@ -451,7 +453,7 @@ bcftools_vcf = env.Command(
 
 bcftools_normalized = env.Command(
     target = '$out/${sample}/${bcftools_out}/sample_normalized.vcf',
-    source = ['${ref_dir}/${reference}.fa',
+    source = ['${ref_dir}/${ref_name}.fa',
               bcftools_vcf,
               ref_dict],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} '
@@ -468,7 +470,7 @@ bcftools_tbi, bcftools_igv = env.Command(
     target = ['$out/${sample}/${bcftools_out}/sample_normalized.vcf.gz.tbi',
               '$out/${sample}/${bcftools_out}/igv.html'],
     source = [bcftools_bgz,
-              '${ref_dir}/${reference}.fa',
+              '${ref_dir}/${ref_name}.fa',
               mq_filtered_bam],
     action = ('$tabix -f ${SOURCES[0]}; '
 	      '$igv ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank '
@@ -502,7 +504,7 @@ bcftools_cov_bed, bcftools_cov_csv = env.Command(
 
 freebayes_gvcf = env.Command(
     target = '$out/${sample}/${freebayes_out}/sample.g.vcf',
-    source = ['${ref_dir}/${reference}.fa',
+    source = ['${ref_dir}/${ref_name}.fa',
               mq_filtered_bam],
     action = ('$freebayes -f ${SOURCES[0]} -p 1 --min-alternate-fraction 0.2 '
               '--gvcf ${SOURCES[1]} > $TARGET')
@@ -511,7 +513,7 @@ freebayes_gvcf = env.Command(
 fb_allgt_vcf, freebayes_vcf = env.Command(
     target = ['$out/${sample}/${freebayes_out}/sample_allgt.vcf',
               '$out/${sample}/${freebayes_out}/sample.vcf'],
-    source = ['${ref_dir}/${reference}.fa',
+    source = ['${ref_dir}/${ref_name}.fa',
               mq_filtered_bam],
     action = ('$freebayes -f ${SOURCES[0]} -p 1 --min-alternate-fraction 0.2 '
               '${SOURCES[1]} > ${TARGETS[0]}; '
@@ -522,7 +524,7 @@ fb_allgt_vcf, freebayes_vcf = env.Command(
 
 freebayes_g_normalized = env.Command(
     target = '$out/${sample}/${freebayes_out}/sample_normalized.g.vcf',
-    source = ['${ref_dir}/${reference}.fa',
+    source = ['${ref_dir}/${ref_name}.fa',
               freebayes_gvcf,
               ref_dict],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} '
@@ -531,7 +533,7 @@ freebayes_g_normalized = env.Command(
 
 freebayes_normalized = env.Command(
     target = '$out/${sample}/${freebayes_out}/sample_normalized.vcf',
-    source = ['${ref_dir}/${reference}.fa',
+    source = ['${ref_dir}/${ref_name}.fa',
               freebayes_vcf,
               ref_dict],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} '
@@ -548,7 +550,7 @@ freebayes_tbi, freebayes_igv = env.Command(
     target = ['$out/${sample}/${freebayes_out}/sample_normalized.vcf.gz.tbi',
               '$out/${sample}/${freebayes_out}/igv.html'],
     source = [freebayes_bgz,
-              '${ref_dir}/${reference}.fa',
+              '${ref_dir}/${ref_name}.fa',
               mq_filtered_bam],
     action = ('$tabix -f ${SOURCES[0]}; '
 	      '$igv ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank '
@@ -583,7 +585,7 @@ freebayes_cov_bed, freebayes_cov_csv = env.Command(
 deepvariant_gvcf, deepvariant_vcf = env.Command(
     target = ['$out/${sample}/${deepvariant_out}/sample.g.vcf',
               '$out/${sample}/${deepvariant_out}/sample.vcf'],
-    source = ['${ref_dir}/${reference}.fa',
+    source = ['${ref_dir}/${ref_name}.fa',
               mq_filtered_bam],
     action = ('$deepvariant --model_type=WGS --ref=${SOURCES[0]} '
               '--reads=${SOURCES[1]} --output_gvcf=${TARGETS[0]} '
@@ -593,7 +595,7 @@ deepvariant_gvcf, deepvariant_vcf = env.Command(
 
 deepvariant_g_normalized = env.Command(
     target = '$out/${sample}/${deepvariant_out}/sample_normalized.g.vcf',
-    source = ['${ref_dir}/${reference}.fa',
+    source = ['${ref_dir}/${ref_name}.fa',
               deepvariant_gvcf,
               ref_dict],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} '
@@ -602,7 +604,7 @@ deepvariant_g_normalized = env.Command(
 
 deepvariant_normalized = env.Command(
     target = '$out/${sample}/${deepvariant_out}/sample_normalized.vcf',
-    source = ['${ref_dir}/${reference}.fa',
+    source = ['${ref_dir}/${ref_name}.fa',
               deepvariant_vcf,
               ref_dict],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} '
@@ -628,7 +630,7 @@ deepvariant_tbi, deepvariant_igv = env.Command(
               'sample_normalized_PASS.vcf.gz.tbi',
               '$out/${sample}/${deepvariant_out}/igv.html'],
     source = [deepvariant_bgz,
-              '${ref_dir}/${reference}.fa',
+              '${ref_dir}/${ref_name}.fa',
               mq_filtered_bam],
     action = ('$tabix -f ${SOURCES[0]}; '
 	      '$igv ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank '
@@ -664,7 +666,7 @@ deepvariant_cov_bed, deepvariant_cov_csv = env.Command(
 
 lancet_vcf = env.Command(
     target = '$out/${sample}/${lancet_out}/sample.vcf', 
-    source = ['${ref_dir}/${reference}.fa',
+    source = ['${ref_dir}/${ref_name}.fa',
               mq_filtered_bam,
               ref_mq_filtered_bam],
     action = ('$lancet --tumor ${SOURCES[1]} --normal ${SOURCES[2]} '
@@ -675,7 +677,7 @@ lancet_vcf = env.Command(
 
 lancet_normalized = env.Command(
     target = '$out/${sample}/${lancet_out}/sample_normalized.vcf',
-    source = ['${ref_dir}/${reference}.fa',
+    source = ['${ref_dir}/${ref_name}.fa',
               lancet_vcf,
               ref_dict],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} '
@@ -711,7 +713,7 @@ lancet_tbi, lancet_igv = env.Command(
               'sample_normalized_PASSsorted.vcf.gz.tbi',
               '$out/${sample}/${lancet_out}/igv.html'],
     source = [lancet_bgz,
-              '${ref_dir}/${reference}.fa',
+              '${ref_dir}/${ref_name}.fa',
               mq_filtered_bam],
     action = ('$tabix -f ${SOURCES[0]}; '
 	      '$igv ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank '
@@ -772,7 +774,7 @@ fof = env.Command(
 discosnp_vcf = env.Command(
     target = '$out/${sample}/${discosnp_out}/'
              'sample_k_31_c_auto_D_100_P_6_b_1_coherent.vcf',
-    source = ['${ref_dir}/${reference}.fa',
+    source = ['${ref_dir}/${ref_name}.fa',
               fof],
     action = ('$discosnp $out -r ../${SOURCES[1]} -P 6 '
               '-b 1 -k 31 -c auto -T -l '
@@ -784,7 +786,7 @@ discosnp_vcf = env.Command(
 
 discosnp_normalized = env.Command(
     target = '$out/${sample}/${discosnp_out}/sample_normalized.vcf',
-    source = ['${ref_dir}/${reference}.fa',
+    source = ['${ref_dir}/${ref_name}.fa',
               discosnp_vcf,
               ref_dict],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} -V ${SOURCES[1]}'
@@ -838,7 +840,7 @@ discosnp_tbi, discosnp_igv = env.Command(
               'sample_discosnp-edit_normalized_PASSsorted.vcf.gz.tbi',
               '$out/${sample}/${discosnp_out}/igv.html'],
     source = [discosnp_bgz,
-              '${ref_dir}/${reference}.fa',
+              '${ref_dir}/${ref_name}.fa',
               mq_filtered_bam],
     action = ('$tabix -f ${SOURCES[0]}; '
 	      '$igv ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank '
@@ -882,7 +884,7 @@ bedfile = env.Command(
 
 vardict_vcf = env.Command(
     target = '$out/${sample}/${vardict_out}/sample.vcf',
-    source = ['${ref_dir}/${reference}.fa',
+    source = ['${ref_dir}/${ref_name}.fa',
               mq_filtered_bam,
               bedfile],
     action = ('$vardict -G ${SOURCES[0]} -f 0.2 -N $sample -b ${SOURCES[1]} '
@@ -894,7 +896,7 @@ vardict_vcf = env.Command(
 
 vardict_normalized = env.Command(
     target = '$out/${sample}/${vardict_out}/sample_normalized.vcf',
-    source = ['${ref_dir}/${reference}.fa',
+    source = ['${ref_dir}/${ref_name}.fa',
               vardict_vcf,
               ref_dict],
     action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} '
@@ -911,7 +913,7 @@ vardict_tbi, vardict_igv = env.Command(
     target = ['$out/${sample}/${vardict_out}/sample_normalized.vcf.gz.tbi',
               '$out/${sample}/${vardict_out}/igv.html'],
     source = [vardict_bgz,
-              '${ref_dir}/${reference}.fa',
+              '${ref_dir}/${ref_name}.fa',
               mq_filtered_bam],
     action = ('$tabix -f ${SOURCES[0]}; '
 	      '$igv ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank '
@@ -934,6 +936,69 @@ vardict_cov_bed, vardict_cov_csv = env.Command(
               '$out/${sample}/${vardict_out}/sample_normalized_cov.csv'],
     source = [vardict_csv,
               vardict_bed,
+              genome_cov],
+    action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -wo '
+              '> ${TARGETS[0]}; '
+	      '$py_deps bin/add_cov.py ${TARGETS[0]} ${SOURCES[0]} '
+              '${TARGETS[1]}')
+)
+
+
+# ############################### Octopus ######################################
+
+oct_vcf, oct_bam = env.Command(
+    target = ['$out/${sample}/${octopus_out}/sample.vcf',
+              '$out/${sample}/${octopus_out}/octopus.bam'],
+    source = ['${ref_dir}/${accession}.fa',
+              mq_filtered_bam],
+    action = ('$octopus -R ${SOURCES[0]} -I ${SOURCES[1]} -C individual -P 1 '
+              '-o ${TARGETS[0]} --bamout ${TARGETS[1]} --threads=6 '
+              '--debug=$out/${sample}/${octopus_out}/$log; '
+              'sed -i \'s/VCFv4.3/VCFv4.2/g\' ${TARGETS[0]}')
+)
+
+octopus_normalized = env.Command(
+    target = '$out/${sample}/${octopus_out}/sample_normalized.vcf',
+    source = ['${ref_dir}/${accession}.fa',
+              oct_vcf,
+              ref_dict],
+    action = ('$gatk LeftAlignAndTrimVariants -R ${SOURCES[0]} '
+              '-V ${SOURCES[1]} -O $TARGET')
+)
+
+oct_bgz = env.Command(
+    target = '$out/${sample}/${octopus_out}/sample_normalized.vcf.gz',
+    source = octopus_normalized,
+    action = '$bgzip < $SOURCE > $TARGET'
+)
+
+oct_tbi, oct_igv = env.Command(
+    target = ['$out/${sample}/${octopus_out}/sample_normalized.vcf.gz.tbi',
+              '$out/${sample}/${octopus_out}/igv.html'],
+    source = [oct_bgz,
+              '${ref_dir}/${accession}.fa',
+              mq_filtered_bam],
+    action = ('$tabix -f ${SOURCES[0]}; '
+	      '$igv ${SOURCES[0]} ${SOURCES[1]} --flanking $igv_flank '
+              '--info-columns $igv_info '
+              '--tracks ${SOURCES[0]} ${SOURCES[2]} --output ${TARGETS[1]}')
+)
+
+oct_csv, oct_bed = env.Command(
+    target = ['$out/${sample}/${octopus_out}/sample_normalized.vcf.csv',
+	      '$out/${sample}/${octopus_out}/sample_normalized.vcf.csv.bed'],
+    source = octopus_normalized,
+    action = ('$py_deps bin/to_csv.py $SOURCE ${TARGETS[0]} --sample $sample; '
+	      '$py_deps bin/to_bed.py $TARGETS --split_mut $mutation_to_flank '
+              '--bp $num_flanking_bp')
+)
+
+oct_cov_bed, oct_cov_csv = env.Command(
+    target = ['$out/${sample}/${octopus_out}/'
+              'sample_normalized_genomecov_intersect.bed',
+              '$out/${sample}/${octopus_out}/sample_normalized_cov.csv'],
+    source = [oct_csv,
+              oct_bed,
               genome_cov],
     action = ('$bedtools intersect -a ${SOURCES[1]} -b ${SOURCES[2]} -wo '
               '> ${TARGETS[0]}; '
@@ -1000,6 +1065,13 @@ vardict_cov_filtered = env.Command(
              '-o $TARGET $SOURCE'
 )
 
+oct_cov_filtered = env.Command(
+    target = '$out/${sample}/${octopus_out}/'
+             'sample_normalized_dp${min_read_depth}.vcf',
+    source = octopus_normalized,
+    action = '$bcftools bcftools filter -i \'FORMAT/DP>=${min_read_depth}\' '
+             '-o $TARGET $SOURCE'
+)
 
 # ################### Check Calls ######################
 
@@ -1066,6 +1138,15 @@ vardict_calls = env.Command(
     action = '$py_deps bin/checker.py $vardict_out $sample $SOURCES $TARGET'
 )
 
+oct_calls = env.Command(
+    target = '$out/${sample}/${octopus_out}/'
+             'sample_normalized_dp${min_read_depth}_checked.csv',
+    source = [oct_cov_filtered,
+              variant_cov_csv,
+              oct_cov_csv],
+    action = '$py_deps bin/checker.py $octopus_out $sample $SOURCES $TARGET'
+)
+
 all_checked_csv = env.Command(
     target = '$out/${sample}/sample_normalized_dp${min_read_depth}_checked.csv',
     source = [gatk_calls,
@@ -1074,7 +1155,8 @@ all_checked_csv = env.Command(
               deepvariant_calls,
               discosnp_calls,
               lancet_calls,
-              vardict_calls],
+              vardict_calls,
+              oct_calls],
     action = ('echo '
               '\'CHROM,POS,REF,ALT,TYPE,INS_TYPE,LEN,QUAL,AD_REF,AD_ALT,DP,'
               'BAM_DP,GT,ZYG,RK_DISCOSNP,TOOL,SAMPLE,TRUE_POS,FALSE_POS,'
