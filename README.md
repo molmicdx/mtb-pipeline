@@ -31,7 +31,7 @@ Identification and analysis of clinically relevant strains of bacteria increasin
 
 3. Debug run: `scons --debug=explain`
 
-4. Variant callers included in the current pipeline: GATK HaplotypeCaller, bcftools, FreeBayes, DiscoSnp, DeepVariant, VarDict, Lancet.
+4. Variant callers included in the current pipeline: GATK HaplotypeCaller, bcftools, FreeBayes, DiscoSnp, DeepVariant, VarDict, Lancet, and Octopus.
 
 5. A minimal reference genome is provided for testing in `data/H37Rv-small.fa`.
 
