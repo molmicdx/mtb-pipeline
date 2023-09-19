@@ -41,3 +41,4 @@ Identification and analysis of clinically relevant strains of bacteria increasin
 	- `output/H37Rv-small/R1.trimmed.fq.gz`
 	- `output/H37Rv-small/R2.trimmed.fq.gz`
 
+*This repo is provided as part of data management and record-keeping supporting [this publication, DOI: https://doi.org/10.1128/jcm.01842-22](https://doi.org/10.1128/jcm.01842-22). Support for issues with setting up and running the pipeline is therefore expected to be minimal.*
